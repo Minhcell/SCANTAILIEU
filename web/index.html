@@ -1,0 +1,2119 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#111">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Quét Tài Liệu</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#000;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;user-select:none;-webkit-user-select:none}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+#copyright{position:fixed;top:0;left:0;right:0;z-index:100;background:#0d47a1;color:#fff;text-align:center;font-size:12px;font-weight:600;letter-spacing:.3px;padding:calc(env(safe-area-inset-top) + 4px) 6px 4px;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.screen{position:fixed;inset:0;top:calc(env(safe-area-inset-top) + 24px);display:none;flex-direction:column}
+.screen.on{display:flex}
+/* Camera */
+#cam{background:#000}
+#vwrap{position:relative;flex:1;overflow:hidden}
+#video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#camMsg{position:absolute;left:0;right:0;top:40%;text-align:center;padding:20px;color:#ccc;font-size:15px;line-height:1.5}
+.topbar{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:10px 12px 10px;background:linear-gradient(#000a,#0000);z-index:2}
+.pill{background:#0008;border-radius:20px;padding:8px 14px;font-size:14px;display:flex;align-items:center;gap:6px}
+.pill.act{background:#1e88e5}
+#hint{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:#0009;padding:6px 14px;border-radius:16px;font-size:13px;white-space:nowrap;z-index:2}
+.bottombar{display:flex;align-items:center;justify-content:space-around;padding:16px 10px calc(env(safe-area-inset-bottom) + 16px);background:#000}
+#shutter{width:76px;height:76px;border-radius:50%;border:5px solid #fff;background:#fff3;position:relative}
+#shutter:active{transform:scale(.92);background:#fff8}
+#shutter.busy::after{content:"";position:absolute;inset:6px;border-radius:50%;border:3px solid transparent;border-top-color:#1e88e5;animation:sp 0.8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#galBtn{width:56px;height:56px;border-radius:8px;background:#222 center/cover;border:2px solid #fff;position:relative}
+#galCount{position:absolute;top:-8px;right:-8px;background:#e53935;border-radius:12px;min-width:22px;height:22px;font-size:13px;display:flex;align-items:center;justify-content:center;padding:0 5px}
+.sideBtn{width:56px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;gap:2px}
+.sideBtn svg,.tb svg{width:26px;height:26px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .25s}
+/* Danh sách trang */
+#list{background:#1a1a1a}
+.hdr{display:flex;align-items:center;gap:10px;padding:10px 12px 10px;background:#111;border-bottom:1px solid #333}
+.hdr h1{font-size:18px;margin:0;flex:1;font-weight:600}
+.hbtn{padding:8px 12px;border-radius:8px;background:#333;font-size:14px}
+.hbtn.pri{background:#1e88e5}
+#grid{flex:1;overflow-y:auto;padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;align-content:start}
+.card{position:relative;background:#fff;border-radius:6px;overflow:hidden;aspect-ratio:3/4;display:flex;align-items:center;justify-content:center}
+.card img{width:100%;height:100%;object-fit:contain;background:#ddd}
+.card .num{position:absolute;left:6px;bottom:6px;background:#000a;border-radius:10px;padding:2px 8px;font-size:12px}
+.card .spin{width:36px;height:36px;border-radius:50%;border:4px solid #ccc;border-top-color:#1e88e5;animation:sp .8s linear infinite;position:absolute}
+.actions{display:flex;gap:8px;padding:12px 12px calc(env(safe-area-inset-bottom) + 12px);background:#111;border-top:1px solid #333}
+.actions button{flex:1;padding:13px 6px;border-radius:10px;background:#333;font-size:15px;font-weight:500}
+.actions .pri{background:#1e88e5}
+.empty{grid-column:1/-1;text-align:center;color:#888;padding:60px 20px}
+/* Xem trang */
+#view{background:#111}
+#viewWrap{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;padding:10px;position:relative}
+#viewImg{max-width:100%;max-height:100%;box-shadow:0 2px 12px #000;background:#fff}
+#viewSpin{position:absolute;width:44px;height:44px;border-radius:50%;border:4px solid #555;border-top-color:#1e88e5;animation:sp .8s linear infinite;display:none}
+.modes{display:flex;gap:6px;padding:8px 10px;overflow-x:auto;background:#111}
+.modes button{flex:1;padding:9px 8px;border-radius:18px;background:#2a2a2a;font-size:13px;white-space:nowrap}
+.modes button.on{background:#1e88e5}
+.toolbar{display:flex;justify-content:space-around;padding:8px 6px calc(env(safe-area-inset-bottom) + 8px);background:#000;border-top:1px solid #222}
+.tb{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;padding:4px 6px;min-width:56px}
+.tb.on svg{stroke:#42a5f5}
+.tb.on{color:#42a5f5}
+/* Cắt góc */
+#crop{background:#000}
+#cropWrap{flex:1;position:relative;overflow:hidden;touch-action:none}
+#cropCanvas{position:absolute;left:0;top:0}
+#loupe{position:absolute;width:110px;height:110px;border-radius:50%;border:3px solid #fff;overflow:hidden;display:none;pointer-events:none;box-shadow:0 2px 10px #000}
+#loupe canvas{width:110px;height:110px}
+.toast{position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#333;color:#fff;padding:10px 18px;border-radius:20px;font-size:14px;z-index:99;opacity:0;transition:opacity .3s;pointer-events:none;max-width:90%;text-align:center}
+.toast.on{opacity:1}
+.reviewBar{display:none;gap:8px;padding:8px 10px;background:#111}
+.reviewBar.on{display:flex}
+.reviewBar button{flex:1;padding:14px 6px;border-radius:10px;font-size:16px;font-weight:600;background:#333}
+.reviewBar .ok{background:#2e7d32}
+.reviewBar .sv{background:#1e88e5}
+#camSave{display:none}
+#busy{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:90;flex-direction:column;gap:14px;font-size:15px}
+#busy.on{display:flex}
+#busy .spin{width:48px;height:48px;border-radius:50%;border:5px solid #555;border-top-color:#1e88e5;animation:sp .8s linear infinite}
+</style>
+</head>
+<body>
+<div id="copyright">COPYRIGHT BY @ THANH MINH ĐỘI 1 - 06</div>
+
+<!-- ===== MÀN HÌNH CHỤP ===== -->
+<div id="cam" class="screen on">
+  <div id="vwrap">
+    <video id="video" playsinline muted autoplay></video>
+    <canvas id="overlay"></canvas>
+    <div id="camMsg"></div>
+    <div id="flash"></div>
+    <div class="topbar">
+      <button class="pill" id="torchBtn" style="visibility:hidden">⚡ Đèn</button>
+      <div style="display:flex;gap:6px"><button class="pill act" id="camSave">💾 Lưu PDF</button><button class="pill" id="reviewBtn">Xem lại: Bật</button><button class="pill" id="autoBtn">Tự chụp: Tắt</button></div>
+    </div>
+    <div id="hint">Đưa tờ giấy vào khung hình</div>
+  </div>
+  <div class="bottombar">
+    <button class="sideBtn" id="importBtn"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Chọn ảnh</button>
+    <button id="shutter" aria-label="Chụp"></button>
+    <button id="galBtn"><span id="galCount" style="display:none">0</span></button>
+  </div>
+  <input type="file" id="fileIn" accept="image/*" multiple hidden>
+  <input type="file" id="camIn" accept="image/*" capture="environment" hidden>
+</div>
+
+<!-- ===== DANH SÁCH TRANG ===== -->
+<div id="list" class="screen">
+  <div class="hdr">
+    <button class="hbtn" id="backCam">‹ Chụp</button>
+    <h1 id="listTitle">Tài liệu</h1>
+    <button class="hbtn" id="clearAll">Xóa hết</button>
+  </div>
+  <div id="grid"></div>
+  <div class="actions">
+    <button id="saveJpg">Lưu ảnh JPG</button>
+    <button class="pri" id="savePdf">Lưu PDF</button>
+  </div>
+</div>
+
+<!-- ===== XEM / CHỈNH 1 TRANG ===== -->
+<div id="view" class="screen">
+  <div class="hdr">
+    <button class="hbtn" id="viewBack">‹ Trang</button>
+    <h1 id="viewTitle">Trang 1</h1>
+    <button class="hbtn" id="viewPrev">‹</button>
+    <button class="hbtn" id="viewNext">›</button>
+  </div>
+  <div id="viewWrap"><img id="viewImg" alt=""><div id="viewSpin"></div></div>
+  <div class="reviewBar" id="reviewBar">
+    <button id="rvRetake">↺ Chụp lại</button>
+    <button class="ok" id="rvOk">✓ OK – Chụp tiếp</button>
+    <button class="sv" id="rvSave">💾 Lưu PDF</button>
+  </div>
+  <div class="modes" id="modes">
+    <button data-m="color">Tăng cường màu</button>
+    <button data-m="gray">Xám</button>
+    <button data-m="bw">Đen trắng</button>
+    <button data-m="original">Ảnh gốc</button>
+  </div>
+  <div class="toolbar">
+    <button class="tb" id="tbCrop"><svg viewBox="0 0 24 24"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>Cắt góc</button>
+    <button class="tb" id="tbFlat"><svg viewBox="0 0 24 24"><path d="M3 7c3-3 6 3 9 0s6 3 9 0"/><path d="M3 17h18"/><path d="M12 10v4"/></svg>Làm phẳng</button>
+    <button class="tb" id="tbRot"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Xoay</button>
+    <button class="tb" id="tbSave"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>Lưu PDF</button>
+    <button class="tb" id="tbDel"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>Xóa</button>
+  </div>
+</div>
+
+<!-- ===== CẮT GÓC THỦ CÔNG ===== -->
+<div id="crop" class="screen">
+  <div class="hdr">
+    <button class="hbtn" id="cropCancel">Hủy</button>
+    <h1>Kéo 4 góc</h1>
+    <button class="hbtn pri" id="cropOk">Áp dụng</button>
+  </div>
+  <div id="cropWrap"><canvas id="cropCanvas"></canvas><div id="loupe"><canvas id="loupeC" width="220" height="220"></canvas></div></div>
+  <div class="actions">
+    <button id="cropAuto">Tự động</button>
+    <button id="cropFull">Toàn ảnh</button>
+  </div>
+</div>
+
+<div id="busy"><div class="spin"></div><div id="busyTxt">Đang xử lý…</div></div>
+<div class="toast" id="toast"></div>
+
+<script type="text/plain" id="coreSrc">/* ===== LÕI XỬ LÝ ẢNH TÀI LIỆU (chạy trong Web Worker hoặc Node) ===== */
+'use strict';
+
+function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+
+/* Thu nhỏ ảnh RGBA bằng trung bình khối */
+function downsample(src, maxDim) {
+  const { w, h, data } = src;
+  const s = Math.min(1, maxDim / Math.max(w, h));
+  const nw = Math.max(1, Math.round(w * s)), nh = Math.max(1, Math.round(h * s));
+  const out = new Uint8ClampedArray(nw * nh * 4);
+  const fx = w / nw, fy = h / nh;
+  for (let y = 0; y < nh; y++) {
+    const y0 = Math.floor(y * fy), y1 = Math.max(y0 + 1, Math.floor((y + 1) * fy));
+    for (let x = 0; x < nw; x++) {
+      const x0 = Math.floor(x * fx), x1 = Math.max(x0 + 1, Math.floor((x + 1) * fx));
+      let r = 0, g = 0, b = 0, n = 0;
+      const sy = Math.max(1, ((y1 - y0) / 3) | 0), sx = Math.max(1, ((x1 - x0) / 3) | 0);
+      for (let yy = y0; yy < y1; yy += sy) for (let xx = x0; xx < x1; xx += sx) {
+        const i = (yy * w + xx) * 4; r += data[i]; g += data[i + 1]; b += data[i + 2]; n++;
+      }
+      const o = (y * nw + x) * 4;
+      out[o] = r / n; out[o + 1] = g / n; out[o + 2] = b / n; out[o + 3] = 255;
+    }
+  }
+  return { w: nw, h: nh, data: out, scale: nw / w };
+}
+
+function toGray(src) {
+  const { w, h, data } = src, g = new Float32Array(w * h);
+  for (let i = 0, j = 0; i < g.length; i++, j += 4) g[i] = 0.299 * data[j] + 0.587 * data[j + 1] + 0.114 * data[j + 2];
+  return g;
+}
+
+/* Làm mờ hộp tách lớp */
+function boxBlur(f, w, h, r) {
+  if (r < 1) return f.slice();
+  const t = new Float32Array(w * h), o = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) {
+    let s = 0; const row = y * w;
+    for (let x = -r; x <= r; x++) s += f[row + clamp(x, 0, w - 1)];
+    for (let x = 0; x < w; x++) {
+      t[row + x] = s / (2 * r + 1);
+      s += f[row + Math.min(w - 1, x + r + 1)] - f[row + Math.max(0, x - r)];
+    }
+  }
+  for (let x = 0; x < w; x++) {
+    let s = 0;
+    for (let y = -r; y <= r; y++) s += t[clamp(y, 0, h - 1) * w + x];
+    for (let y = 0; y < h; y++) {
+      o[y * w + x] = s / (2 * r + 1);
+      s += t[Math.min(h - 1, y + r + 1) * w + x] - t[Math.max(0, y - r) * w + x];
+    }
+  }
+  return o;
+}
+
+function otsu(vals, n) {
+  const hist = new Float64Array(256);
+  for (let i = 0; i < n; i++) hist[clamp(vals[i] | 0, 0, 255)]++;
+  let sum = 0; for (let i = 0; i < 256; i++) sum += i * hist[i];
+  let sB = 0, wB = 0, best = 0, th = 128;
+  for (let t = 0; t < 256; t++) {
+    wB += hist[t]; if (!wB) continue;
+    const wF = n - wB; if (!wF) break;
+    sB += t * hist[t];
+    const mB = sB / wB, mF = (sum - sB) / wF, v = wB * wF * (mB - mF) * (mB - mF);
+    if (v > best) { best = v; th = t; }
+  }
+  return th;
+}
+
+/* Dãn / co mặt nạ nhị phân bằng làm mờ hộp */
+function morph(m, w, h, r, dilate) {
+  const f = new Float32Array(w * h); for (let i = 0; i < f.length; i++) f[i] = m[i];
+  const b = boxBlur(f, w, h, r), o = new Uint8Array(w * h);
+  for (let i = 0; i < o.length; i++) o[i] = dilate ? (b[i] > 0.02 ? 1 : 0) : (b[i] > 0.98 ? 1 : 0);
+  return o;
+}
+
+/* Thành phần liên thông lớn nhất (ưu tiên vùng gần tâm ảnh) */
+function largestComponent(m, w, h) {
+  const lab = new Int32Array(w * h), stack = new Int32Array(w * h);
+  let best = -1, bestScore = 0, bestArea = 0, cur = 0;
+  for (let s = 0; s < m.length; s++) {
+    if (!m[s] || lab[s]) continue;
+    cur++; let sp = 0, area = 0, cx = 0, cy = 0; stack[sp++] = s; lab[s] = cur;
+    while (sp) {
+      const p = stack[--sp]; area++; const x = p % w, y = (p / w) | 0; cx += x; cy += y;
+      if (x > 0 && m[p - 1] && !lab[p - 1]) { lab[p - 1] = cur; stack[sp++] = p - 1; }
+      if (x < w - 1 && m[p + 1] && !lab[p + 1]) { lab[p + 1] = cur; stack[sp++] = p + 1; }
+      if (y > 0 && m[p - w] && !lab[p - w]) { lab[p - w] = cur; stack[sp++] = p - w; }
+      if (y < h - 1 && m[p + w] && !lab[p + w]) { lab[p + w] = cur; stack[sp++] = p + w; }
+    }
+    cx /= area; cy /= area;
+    const dc = Math.hypot(cx / w - 0.5, cy / h - 0.5);
+    const score = area * (1.2 - dc);
+    if (score > bestScore) { bestScore = score; best = cur; bestArea = area; }
+  }
+  const o = new Uint8Array(w * h);
+  if (best > 0) for (let i = 0; i < o.length; i++) o[i] = lab[i] === best ? 1 : 0;
+  return { mask: o, area: bestArea };
+}
+
+/* Lấp lỗ bên trong mặt nạ */
+function fillHoles(m, w, h) {
+  const out = new Uint8Array(w * h).fill(1), stack = new Int32Array(w * h); let sp = 0;
+  const push = p => { if (!m[p] && out[p]) { out[p] = 0; stack[sp++] = p; } };
+  for (let x = 0; x < w; x++) { push(x); push((h - 1) * w + x); }
+  for (let y = 0; y < h; y++) { push(y * w); push(y * w + w - 1); }
+  while (sp) {
+    const p = stack[--sp], x = p % w, y = (p / w) | 0;
+    if (x > 0) push(p - 1); if (x < w - 1) push(p + 1); if (y > 0) push(p - w); if (y < h - 1) push(p + w);
+  }
+  return out;
+}
+
+function convexHull(pts) {
+  pts.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], up = [];
+  for (const p of pts) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+  for (let i = pts.length - 1; i >= 0; i--) { const p = pts[i]; while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+  lo.pop(); up.pop(); return lo.concat(up);
+}
+
+function polyArea(p) { let a = 0; for (let i = 0; i < p.length; i++) { const q = p[(i + 1) % p.length]; a += p[i][0] * q[1] - q[0] * p[i][1]; } return Math.abs(a) / 2; }
+function tri(a, b, c) { return Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) / 2; }
+
+/* Tứ giác diện tích lớn nhất nội tiếp bao lồi */
+function maxQuad(hull) {
+  let H = hull;
+  if (H.length > 60) { const st = H.length / 60; const t = []; for (let i = 0; i < 60; i++) t.push(H[Math.floor(i * st)]); H = t; }
+  const n = H.length; if (n < 4) return null;
+  let best = 0, bq = null;
+  for (let i = 0; i < n; i++) for (let k = i + 2; k < n; k++) {
+    let b1 = 0, j1 = -1, b2 = 0, l1 = -1;
+    for (let j = i + 1; j < k; j++) { const a = tri(H[i], H[j], H[k]); if (a > b1) { b1 = a; j1 = j; } }
+    for (let l = k + 1; l < n + i; l++) { const a = tri(H[i], H[k], H[l % n]); if (a > b2) { b2 = a; l1 = l % n; } }
+    if (j1 >= 0 && l1 >= 0 && b1 + b2 > best) { best = b1 + b2; bq = [H[i], H[j1], H[k], H[l1]]; }
+  }
+  return bq;
+}
+
+/* Sắp 4 góc: trên-trái, trên-phải, dưới-phải, dưới-trái */
+function orderQuad(q) {
+  const cx = (q[0][0] + q[1][0] + q[2][0] + q[3][0]) / 4, cy = (q[0][1] + q[1][1] + q[2][1] + q[3][1]) / 4;
+  const s = q.slice().sort((a, b) => Math.atan2(a[1] - cy, a[0] - cx) - Math.atan2(b[1] - cy, b[0] - cx));
+  // bắt đầu từ góc có x+y nhỏ nhất
+  let k = 0, mn = 1e18; for (let i = 0; i < 4; i++) { const v = s[i][0] + s[i][1]; if (v < mn) { mn = v; k = i; } }
+  return [s[k], s[(k + 1) % 4], s[(k + 2) % 4], s[(k + 3) % 4]];
+}
+
+function inkMap(g, w, h, mask) {
+  const bg = boxBlur(g, w, h, Math.max(4, Math.round(Math.max(w, h) / 60)));
+  const ink = new Uint8Array(w * h);
+  for (let i = 0; i < ink.length; i++) if (mask[i] && g[i] < bg[i] * 0.8 && bg[i] > 145) ink[i] = 1;
+  return ink;
+}
+
+/* Nới các cạnh tứ giác để mọi điểm chữ nằm bên trong */
+function expandToInk(q, ink, w, h, margin) {
+  const cx = (q[0][0] + q[1][0] + q[2][0] + q[3][0]) / 4, cy = (q[0][1] + q[1][1] + q[2][1] + q[3][1]) / 4;
+  const lines = [];
+  for (let e = 0; e < 4; e++) {
+    const a = q[e], b = q[(e + 1) % 4];
+    let nx = b[1] - a[1], ny = -(b[0] - a[0]); const L = Math.hypot(nx, ny) || 1; nx /= L; ny /= L;
+    let c = nx * a[0] + ny * a[1];
+    if (nx * cx + ny * cy > c) { nx = -nx; ny = -ny; c = -c; } // pháp tuyến hướng ra ngoài
+    lines.push([nx, ny, c]);
+  }
+  const ds = [[], [], [], []];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (!ink[y * w + x]) continue;
+    let worst = -1, wd = 0;
+    for (let e = 0; e < 4; e++) { const d = lines[e][0] * x + lines[e][1] * y - lines[e][2]; if (d > wd) { wd = d; worst = e; } }
+    if (worst >= 0) ds[worst].push(wd);
+  }
+  const minCount = Math.max(12, w * h * 0.0012);
+  for (let e = 0; e < 4; e++) {
+    let push = margin;
+    if (ds[e].length >= minCount) { ds[e].sort((a, b) => a - b); push += Math.min(Math.max(w, h) * 0.03, ds[e][Math.floor(ds[e].length * 0.995)]); }
+    lines[e][2] += push;
+  }
+  const out = [];
+  for (let i = 0; i < 4; i++) {
+    const l1 = lines[(i + 3) % 4], l2 = lines[i];
+    const det = l1[0] * l2[1] - l1[1] * l2[0];
+    let x, y;
+    if (Math.abs(det) < 1e-9) { x = q[i][0]; y = q[i][1]; }
+    else { x = (l1[2] * l2[1] - l1[1] * l2[2]) / det; y = (l1[0] * l2[2] - l1[2] * l2[0]) / det; }
+    out.push([clamp(x, 0, w - 1), clamp(y, 0, h - 1)]);
+  }
+  return out;
+}
+
+
+/* ===== Phát hiện mép trang khác đè lên (trang lật, tờ bên dưới) =====
+   Mép giấy là đường liền mạch chạy suốt bề ngang tờ giấy kể cả vùng lề trống;
+   dòng chữ thì đứt quãng giữa các từ và dừng ở lề -> dùng để phân biệt. */
+function seamResponse(g, mask, w, h) {
+  const inner = morph(mask, w, h, 3, false);  // bỏ sát biên tờ giấy
+  const R = new Float32Array(w * h);
+  const av = (y, x) => (g[y * w + x - 1] + g[y * w + x] + g[y * w + x + 1]) / 3;
+  for (let y = 5; y < h - 5; y++) for (let x = 1; x < w - 1; x++) {
+    if (!inner[y * w + x]) continue;
+    const a = av(y - 2, x), b = av(y + 2, x), c = av(y, x);
+    R[y * w + x] = Math.max(Math.max(0, Math.min(a, b) - c), 0.8 * Math.abs(av(y - 4, x) - av(y + 4, x)));
+  }
+  return R;
+}
+function bestSeam(R, mask, ring, w, h, y0, y1, dir, span) {
+  const H = y1 - y0; if (H < 8) return null;
+  const S = new Float32Array(H), S2 = new Float32Array(H), P = new Int8Array(w * H);
+  for (let x = 0; x < w; x++) {
+    for (let j = 0; j < H; j++) {
+      let best = -1e9, bk = 0;
+      for (let k = -1; k <= 1; k++) { const jj = j + k; if (jj < 0 || jj >= H) continue; const v = (x ? S[jj] : 0) - (k ? 0.8 : 0); if (v > best) { best = v; bk = k; } }
+      const p = (y0 + j) * w + x;
+      const sc = ring[p] ? 0.8 : mask[p] ? Math.min(R[p], 15) / 15 - 0.2 : -0.5;
+      S2[j] = best + sc; P[x * H + j] = bk;
+    }
+    S.set(S2);
+  }
+  let j = 0; for (let k = 1; k < H; k++) if (S[k] > S[j]) j = k;
+  const path = new Int32Array(w); for (let x = w - 1; x >= 0; x--) { path[x] = y0 + j; j += P[x * H + j]; }
+  // cột "dính": bên ngoài đường mép vẫn còn vùng sáng dày (trang khác / nền trắng dính vào)
+  const cols = [], att = new Uint8Array(w), depth = new Float32Array(w);
+  for (let x = 0; x < w; x++) {
+    let inPaper = false; for (let y = Math.max(0, path[x] - 3); y <= Math.min(h - 1, path[x] + 3); y++) if (mask[y * w + x]) { inPaper = true; break; }
+    if (!inPaper) continue;
+    cols.push(x);
+    let e = path[x], c = 0;
+    if (dir < 0) { for (let y = path[x] - 1; y >= 0 && mask[y * w + x]; y--) c++; }
+    else { for (let y = path[x] + 1; y < h && mask[y * w + x]; y++) c++; }
+    depth[x] = c; if (c >= span * 0.02) att[x] = 1;
+  }
+  const n = cols.length; if (n < w * 0.3) return null;
+  const ac = cols.filter(x => att[x]); const na = ac.length;
+  if (na < n * 0.15) return null;
+  let cov = 0, gap = 0, mg = 0;
+  for (const x of ac) { const ok = R[path[x] * w + x] > 7; cov += ok; if (!ok) { gap++; mg = Math.max(mg, gap); } else gap = 0; }
+  const dd = ac.map(x => depth[x]).sort((p, q) => p - q);
+  if (dd[na >> 1] < span * 0.03) return null;
+  if (cov / na < 0.85 || mg > Math.max(3, na * 0.04)) return null;
+  if (na >= n * 0.9) {           // mép chạy suốt bề ngang: phải chạm cả hai lề (dòng chữ thì không)
+    const m = Math.max(3, Math.round(n * 0.08)); let L = 0, Rr = 0;
+    for (let i = 0; i < m; i++) { L += R[path[cols[i]] * w + cols[i]] > 7 || ring[path[cols[i]] * w + cols[i]]; Rr += R[path[cols[n - 1 - i]] * w + cols[n - 1 - i]] > 7 || ring[path[cols[n - 1 - i]] * w + cols[n - 1 - i]]; }
+    if (L / m < 0.55 || Rr / m < 0.55) return null;
+  }
+  return { path, att };
+}
+function transpose(a, w, h, T) { const o = new T(w * h); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) o[x * h + y] = a[y * w + x]; return o; }
+/* Xóa phần tờ giấy nằm ngoài mép trang lạ ở 4 phía; trả về số mép đã cắt */
+function cutForeignPages(g, mask, w, h, textOf) {
+  let cuts = 0;
+  for (let pass = 0; pass < 2; pass++) {             // 0: trên/dưới ; 1: trái/phải (chuyển vị)
+    const W = pass ? h : w, H = pass ? w : h;
+    const gg = pass ? transpose(g, w, h, Float32Array) : g;
+    const mm = pass ? transpose(mask, w, h, Uint8Array) : mask;
+    // khoảng dọc của tờ giấy
+    let top = H, bot = -1;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (mm[y * W + x]) { if (y < top) top = y; bot = y; break; }
+    if (bot - top < 40) continue;
+    const R = seamResponse(gg, mm, W, H), span = bot - top;
+    const inner = morph(mm, W, H, 3, false), ring = new Uint8Array(W * H);
+    for (let i = 0; i < ring.length; i++) ring[i] = mm[i] && !inner[i] ? 1 : 0;
+    const sides = [[top + 2, top + Math.round(span * 0.3), -1], [bot - Math.round(span * 0.3), bot - 2, 1]];
+    let changed = false;
+    for (const [a, b, dir] of sides) {
+      const r = bestSeam(R, mm, ring, W, H, a, b, dir, span);
+      if (!r) continue;
+      if (textOf) {   // vùng bên kia có chữ cùng chiều, cùng độ nghiêng với trang chính -> cùng một trang, không cắt
+        const beyond = pass
+          ? (x, y) => { const c = y | 0, rr = x | 0; return c >= 0 && c < W && r.att[c] && (dir < 0 ? rr < r.path[c] : rr > r.path[c]); }
+          : (x, y) => { const c = x | 0, rr = y | 0; return c >= 0 && c < W && r.att[c] && (dir < 0 ? rr < r.path[c] : rr > r.path[c]); };
+        const v = textOf(beyond, (x, y) => !beyond(x, y));
+        if (typeof DEBUG_SEAM !== 'undefined') console.log('seam verdict', v);
+        if (v === -1) continue;
+      }
+      cuts++; changed = true;
+      for (let x = 0; x < W; x++) {
+        if (!r.att[x]) continue;
+        const sh0 = Math.max(2, Math.round(span * 0.02)), yc = r.path[x] + (dir < 0 ? -sh0 : sh0);
+        if (dir < 0) for (let y = 0; y <= yc; y++) mm[y * W + x] = 0;
+        else for (let y = Math.max(0, yc); y < H; y++) mm[y * W + x] = 0;
+      }
+    }
+    if (changed && pass) { const back = transpose(mm, h, w, Uint8Array); mask.set(back); }
+  }
+  return cuts;
+}
+
+
+/* Điểm nằm trong tứ giác lồi (theo thứ tự) */
+function quadMask(q, w, h, grow) {
+  const m = new Uint8Array(w * h);
+  const cx = (q[0][0] + q[1][0] + q[2][0] + q[3][0]) / 4, cy = (q[0][1] + q[1][1] + q[2][1] + q[3][1]) / 4;
+  const L = [];
+  for (let e = 0; e < 4; e++) {
+    const a = q[e], b = q[(e + 1) % 4]; let nx = b[1] - a[1], ny = a[0] - b[0]; const n = Math.hypot(nx, ny) || 1; nx /= n; ny /= n;
+    let c = nx * a[0] + ny * a[1]; if (nx * cx + ny * cy > c) { nx = -nx; ny = -ny; c = -c; }
+    L.push([nx, ny, c + (grow || 0)]);
+  }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let ok = 1; for (let e = 0; e < 4; e++) if (L[e][0] * x + L[e][1] * y > L[e][2]) { ok = 0; break; }
+    m[y * w + x] = ok;
+  }
+  return m;
+}
+/* Tinh chỉnh 4 góc để tứ giác ôm sát tờ giấy: phạt nặng phần không phải giấy bị ôm vào
+   -> loại các vùng sáng dính vào mép (nền gạch, khăn giấy…) */
+function refineQuad(q, mask, w, h) {
+  const f = 2, sw = Math.ceil(w / f), sh = Math.ceil(h / f), m = new Uint8Array(sw * sh);
+  for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) m[y * sw + x] = mask[Math.min(h - 1, y * f) * w + Math.min(w - 1, x * f)];
+  const score = qq => {
+    const qm = quadMask(qq.map(p => [p[0] / f, p[1] / f]), sw, sh, 0); let s = 0;
+    for (let i = 0; i < qm.length; i++) if (qm[i]) s += m[i] ? 1 : -3;
+    return s;
+  };
+  let best = q.map(p => p.slice()), bs = score(best);
+  for (let st = Math.max(w, h) * 0.04; st >= Math.max(w, h) * 0.004; st /= 2) {
+    let improved = true, guard = 0;
+    while (improved && guard++ < 6) {
+      improved = false;
+      for (let i = 0; i < 4; i++) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+        const t = best.map(p => p.slice());
+        t[i][0] = clamp(t[i][0] + dx * st, 0, w - 1); t[i][1] = clamp(t[i][1] + dy * st, 0, h - 1);
+        const sc = score(t); if (sc > bs) { bs = sc; best = t; improved = true; }
+      }
+    }
+  }
+  return best;
+}
+
+
+/* ===== Nhận biết hướng chữ của một vùng (ảnh độ phân giải vừa) =====
+   trả về {angle: độ nghiêng dòng chữ, asym: dấu cho biết chữ xuôi/ngược, n: số điểm mực} */
+function regionText(mid, inRegion) {
+  const { w, h, data } = mid;
+  const g = new Float32Array(w * h);
+  for (let i = 0, j = 0; i < g.length; i++, j += 4) g[i] = 0.299 * data[j] + 0.587 * data[j + 1] + 0.114 * data[j + 2];
+  const ink = [];
+  const r = Math.max(6, Math.round(w / 100));
+  for (let y = 0; y < h; y += 1) {
+    // nền: max cửa sổ ngang (trượt)
+    for (let x = 0; x < w; x++) {
+      if (!inRegion(x, y)) continue;
+      let m = 0; for (let k = -r; k <= r; k += 3) { const xx = clamp(x + k, 0, w - 1); const v = g[y * w + xx]; if (v > m) m = v; }
+      if (m > 90 && g[y * w + x] < m * 0.7) ink.push(x, y);
+    }
+  }
+  const n = ink.length / 2; if (n < 600) return null;
+  let best = null;
+  const off = w + h, len = 2 * (w + h) + 2;
+  for (let a = -40; a <= 40; a += 2) {
+    const t = a * Math.PI / 180, sn = Math.sin(t), cs = Math.cos(t), pr = new Float64Array(len);
+    for (let i = 0; i < ink.length; i += 2) pr[Math.round(-ink[i] * sn + ink[i + 1] * cs) + off]++;
+    let v = 0; for (let i = 0; i < len; i++) v += pr[i] * pr[i];
+    if (!best || v > best.v) best = { a, v, pr };
+  }
+  const pr = best.pr; let up = 0, dn = 0, peak = 0;
+  for (let i = 0; i < len; i++) peak = Math.max(peak, pr[i]);
+  for (let i = 15; i < len - 15; i++) {
+    if (pr[i] >= pr[i - 1] && pr[i] > pr[i + 1] && pr[i] > peak * 0.25) {
+      let lm = 0; for (let k = -12; k <= 12; k++) lm = Math.max(lm, pr[i + k]); if (pr[i] < lm) continue;
+      let c1 = 0, c0 = 0; for (let k = -14; k <= 14; k++) { c1 += k * pr[i + k]; c0 += pr[i + k]; }
+      if (c1 / c0 < 0) up += c0; else dn += c0; i += 10;
+    }
+  }
+  return { angle: best.a, asym: (up + dn) ? (up - dn) / (up + dn) : 0, n };
+}
+/* So sánh chữ vùng nghi ngờ với trang chính: 1 = khác trang, -1 = cùng trang, 0 = không rõ */
+function compareText(a, b) {
+  if (!a || !b || a.n < 1500 || b.n < 1500) return 0;
+  const da = Math.abs(a.angle - b.angle);
+  if (da >= 8) return 1;
+  if (Math.abs(a.asym) >= 0.2 && Math.abs(b.asym) >= 0.2) return a.asym * b.asym < 0 ? 1 : (da < 3 ? -1 : 0);
+  return 0;
+}
+
+/* ===== Góc trang khác đè lên (tài liệu bấm ghim góc, lật trang để lại tam giác) ===== */
+function lineResp(g, w, h, x, y, nx, ny) {
+  const S = (xx, yy) => { xx = clamp(xx, 0, w - 1.001); yy = clamp(yy, 0, h - 1.001); const x0 = xx | 0, y0 = yy | 0, a = xx - x0, b = yy - y0, i = y0 * w + x0;
+    return (g[i] * (1 - a) + g[i + 1] * a) * (1 - b) + (g[i + w] * (1 - a) + g[i + w + 1] * a) * b; };
+  const c = S(x, y), p2 = S(x + nx * 2, y + ny * 2), m2 = S(x - nx * 2, y - ny * 2);
+  return Math.max(Math.max(0, Math.min(p2, m2) - c), 0.8 * Math.abs(S(x + nx * 4, y + ny * 4) - S(x - nx * 4, y - ny * 4)));
+}
+function findCornerFlaps(g, mask, q, w, h, textOf) {
+  const inner = morph(mask, w, h, 3, false);
+  const diag = Math.hypot(q[2][0] - q[0][0], q[2][1] - q[0][1]);
+  const B = boxBlur(g, w, h, 1);
+  // Hough theo hướng gradient
+  const NT = 180, RMAX = Math.ceil(Math.hypot(w, h)), acc = new Float32Array(NT * (2 * RMAX + 1));
+  const cosT = new Float32Array(NT), sinT = new Float32Array(NT);
+  for (let t = 0; t < NT; t++) { cosT[t] = Math.cos(t * Math.PI / NT); sinT[t] = Math.sin(t * Math.PI / NT); }
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const p = y * w + x; if (!inner[p]) continue;
+    const gx = B[p + 1] - B[p - 1] + 0.5 * (B[p - w + 1] - B[p - w - 1] + B[p + w + 1] - B[p + w - 1]);
+    const gy = B[p + w] - B[p - w] + 0.5 * (B[p + w - 1] - B[p - w - 1] + B[p + w + 1] - B[p - w + 1]);
+    const m = Math.hypot(gx, gy); if (m < 14) continue;
+    let th = Math.atan2(gy, gx); if (th < 0) th += Math.PI; if (th >= Math.PI) th -= Math.PI;
+    const t0 = Math.round(th / Math.PI * NT);
+    for (let dt = -2; dt <= 2; dt++) { const t = (t0 + dt + NT) % NT; const r = Math.round(x * cosT[t] + y * sinT[t]); acc[t * (2 * RMAX + 1) + r + RMAX] += 1; }
+  }
+  const segInt = (P0, P1, t, r) => {   // giao đường (cos,sin,r) với đoạn P0P1, trả về tham số
+    const f0 = P0[0] * cosT[t] + P0[1] * sinT[t] - r, f1 = P1[0] * cosT[t] + P1[1] * sinT[t] - r;
+    if (f0 * f1 > 0 || f0 === f1) return -1; return f0 / (f0 - f1);
+  };
+  const cutsCorner = (t, r) => { for (let c = 0; c < 4; c++) { const fa = segInt(q[c], q[(c + 3) % 4], t, r), fb = segInt(q[c], q[(c + 1) % 4], t, r); if (fa >= 0.03 && fa <= 0.75 && fb >= 0.03 && fb <= 0.75) return true; } return false; };
+  // các đỉnh mạnh nhất trong số đường cắt ngang một góc
+  const peaks = []; const RW = 2 * RMAX + 1;
+  for (let i = 0; i < acc.length; i++) if (acc[i] > 0 && !cutsCorner(Math.floor(i / RW), i % RW - RMAX)) acc[i] = 0;
+  for (let it = 0; it < 12; it++) {
+    let bi = -1, bv = diag * 0.05;
+    for (let i = 0; i < acc.length; i++) if (acc[i] > bv) { bv = acc[i]; bi = i; }
+    if (bi < 0) break;
+    const t = Math.floor(bi / RW), r = bi % RW - RMAX; peaks.push([t, r]);
+    for (let dt = -4; dt <= 4; dt++) for (let dr = -6; dr <= 6; dr++) { const tt = (t + dt + NT) % NT, rr = r + dr + RMAX; if (rr >= 0 && rr < RW) acc[tt * RW + rr] = 0; }
+  }
+  const out = [];
+  for (const [t, r] of peaks) {
+    for (let c = 0; c < 4; c++) {
+      const C = q[c], A = q[(c + 3) % 4], Bq = q[(c + 1) % 4];
+      const fa = segInt(C, A, t, r), fb = segInt(C, Bq, t, r);
+      if (fa < 0.03 || fa > 0.75 || fb < 0.03 || fb > 0.75) continue;
+      const P = [C[0] + (A[0] - C[0]) * fa, C[1] + (A[1] - C[1]) * fa], Q = [C[0] + (Bq[0] - C[0]) * fb, C[1] + (Bq[1] - C[1]) * fb];
+      const L = Math.hypot(Q[0] - P[0], Q[1] - P[1]); if (L < diag * 0.12) continue;
+      // tinh chỉnh dịch song song ±3 px để bám đúng mép
+      let best = null;
+      for (let sh = -3; sh <= 3; sh++) {
+        const nx = cosT[t], ny = sinT[t];
+        const P2 = [P[0] + nx * sh, P[1] + ny * sh], Q2 = [Q[0] + nx * sh, Q[1] + ny * sh];
+        const N = Math.max(20, Math.round(L)); let cov = 0, cnt = 0, gap = 0, mg = 0;
+        for (let k = 0; k <= N; k++) {
+          const x = P2[0] + (Q2[0] - P2[0]) * k / N, y = P2[1] + (Q2[1] - P2[1]) * k / N, xi = Math.round(x), yi = Math.round(y);
+          if (xi < 0 || yi < 0 || xi >= w || yi >= h || !inner[yi * w + xi]) continue;
+          cnt++;
+          const rr = lineResp(g, w, h, x, y, nx, ny);
+          const ok = rr > 7 && rr > 1.4 * Math.max(lineResp(g, w, h, x + nx * 6, y + ny * 6, nx, ny), lineResp(g, w, h, x - nx * 6, y - ny * 6, nx, ny));
+          cov += ok; if (!ok) { gap++; mg = Math.max(mg, gap); } else gap = 0;
+        }
+        if (cnt < N * 0.6) continue;
+        const cv = cov / cnt; if (!best || cv > best.cv) best = { cv, mg, cnt, P: P2, Q: Q2 };
+      }
+      if (!best || best.cv < 0.35) continue;
+      const strongLine = best.cv >= 0.8 && best.mg <= Math.max(3, best.cnt * 0.08);
+      if (out.some(o => o.c === c && o.cv >= best.cv)) continue;
+      const tri = [C, best.P, best.Q];
+      const inTri = (x, y) => { let s0 = 0; for (let i = 0; i < 3; i++) { const a = tri[i], b = tri[(i + 1) % 3]; const v = (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]); if (v > 0) s0++; else if (v < 0) s0--; } return Math.abs(s0) === 3; };
+      const verdict = textOf ? textOf(inTri, (x, y) => !inTri(x, y)) : 0;
+      if (typeof DEBUG_SEAM !== 'undefined') console.log('flap cand corner', c, 'cv', best.cv.toFixed(2), 'verdict', verdict);
+      const ok = (strongLine && verdict >= 0) || verdict === 1;
+      if (!ok) continue;
+      for (let i = out.length - 1; i >= 0; i--) if (out[i].c === c) out.splice(i, 1);
+      out.push({ tri, inTri, cv: best.cv, verdict, c });
+    }
+  }
+  return out;
+}
+
+/* Phát hiện tờ giấy trên ảnh nhỏ */
+function detectDoc(small, withInk, mid) {
+  const { w, h, data } = small, n = w * h;
+  const g = toGray(small);
+  const sc = new Float32Array(n);
+  for (let i = 0, j = 0; i < n; i++, j += 4) {
+    const mx = Math.max(data[j], data[j + 1], data[j + 2]), mn = Math.min(data[j], data[j + 1], data[j + 2]);
+    sc[i] = clamp(g[i] - 1.3 * (mx - mn), 0, 255);
+  }
+  const sb = boxBlur(sc, w, h, 1);
+  const T = otsu(sb, n);
+  let m = new Uint8Array(n); for (let i = 0; i < n; i++) m[i] = sb[i] > T ? 1 : 0;
+  const r = Math.max(2, Math.round(Math.max(w, h) / 120));
+  m = morph(morph(m, w, h, r, true), w, h, r, false);   // đóng: lấp chữ
+  m = morph(morph(m, w, h, r, false), w, h, r, true);   // mở: bỏ nhiễu nhỏ
+  const comp = largestComponent(m, w, h);
+  const full = { quad: [[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]], conf: 0, mask: null, ink: null };
+  if (comp.area < n * 0.08) return full;
+  let mask = fillHoles(comp.mask, w, h);
+  // cắt các phần lồi nối với tờ giấy qua cổ hẹp (vân đá trắng, mép khăn giấy…)
+  { const ro = Math.max(3, Math.round(Math.max(w, h) * 0.015));
+    const op = largestComponent(morph(morph(mask, w, h, ro, false), w, h, ro, true), w, h).mask;
+    const keep = morph(op, w, h, 2, true);
+    for (let i = 0; i < n; i++) if (!keep[i]) mask[i] = 0;
+    mask = largestComponent(mask, w, h).mask; }
+  let textOf = null;
+  if (mid) {
+    const k = mid.w / w;
+    textOf = (inA, inB) => {
+      const ta = regionText(mid, (x, y) => { const sx = x / k, sy = y / k, p = (sy | 0) * w + (sx | 0); return mask[p] && inA(sx, sy); });
+      const tb = regionText(mid, (x, y) => { const sx = x / k, sy = y / k, p = (sy | 0) * w + (sx | 0); return mask[p] && inB(sx, sy); });
+      return compareText(ta, tb);
+    };
+  }
+  const cuts = cutForeignPages(g, mask, w, h, textOf);
+  if (cuts) { mask = largestComponent(mask, w, h).mask; }
+  const pts = [];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const p = y * w + x; if (!mask[p]) continue;
+    if (x === 0 || y === 0 || x === w - 1 || y === h - 1 || !mask[p - 1] || !mask[p + 1] || !mask[p - w] || !mask[p + w]) pts.push([x, y]);
+  }
+  const hull = convexHull(pts);
+  let q = maxQuad(hull); if (!q) return full;
+  q = orderQuad(refineQuad(orderQuad(q), mask, w, h));
+  // cắt bỏ phần mặt nạ lồi ra ngoài tứ giác quá xa (vật sáng dính vào mép)
+  { const qm = quadMask(q, w, h, Math.max(w, h) * 0.02); for (let i = 0; i < n; i++) if (!qm[i]) mask[i] = 0; mask = largestComponent(mask, w, h).mask; }
+  // vẽ trắng các góc trang khác đè lên (giữ nguyên khung trang chính)
+  let paint = mask, flaps = [];
+  {
+    flaps = findCornerFlaps(g, mask, q, w, h, textOf);
+    if (flaps.length) { paint = mask.slice(); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (paint[y * w + x] && flaps.some(f => f.inTri(x + 0.5, y + 0.5))) paint[y * w + x] = 0; }
+  }
+  let area = 0; for (let i = 0; i < n; i++) area += mask[i];
+  const qa = polyArea(q);
+  const conf = clamp(Math.min(area / qa, qa / area) * 1.0, 0, 1) * (qa > n * 0.15 ? 1 : 0.4);
+  let ink = null;
+  if (withInk) {
+    ink = inkMap(g, w, h, mask);
+    q = orderQuad(expandToInk(q, ink, w, h, Math.max(1.5, Math.max(w, h) * 0.006)));
+  }
+  return { quad: q, conf, mask, paint, ink, cuts, flaps: flaps.length, T, r };
+}
+
+/* Đồng nhất: ánh xạ hình vuông đơn vị -> tứ giác (Heckbert) */
+function squareToQuad(q) {
+  const [x0, y0] = q[0], [x1, y1] = q[1], [x2, y2] = q[2], [x3, y3] = q[3];
+  const dx1 = x1 - x2, dx2 = x3 - x2, dy1 = y1 - y2, dy2 = y3 - y2;
+  const sx = x0 - x1 + x2 - x3, sy = y0 - y1 + y2 - y3;
+  let a, b, c, d, e, f, gg, hh;
+  if (Math.abs(sx) < 1e-9 && Math.abs(sy) < 1e-9) {
+    a = x1 - x0; b = x2 - x1; c = x0; d = y1 - y0; e = y2 - y1; f = y0; gg = 0; hh = 0;
+  } else {
+    const den = dx1 * dy2 - dx2 * dy1;
+    gg = (sx * dy2 - dx2 * sy) / den; hh = (dx1 * sy - sx * dy1) / den;
+    a = x1 - x0 + gg * x1; b = x3 - x0 + hh * x3; c = x0;
+    d = y1 - y0 + gg * y1; e = y3 - y0 + hh * y3; f = y0;
+  }
+  return (u, v) => { const z = gg * u + hh * v + 1; return [(a * u + b * v + c) / z, (d * u + e * v + f) / z]; };
+}
+
+/* Đo độ cong của 4 mép giấy (độ lệch theo pháp tuyến), trên ảnh nhỏ */
+function edgeOffsets(q, mask, ink, w, h, M) {
+  const cx = (q[0][0] + q[1][0] + q[2][0] + q[3][0]) / 4, cy = (q[0][1] + q[1][1] + q[2][1] + q[3][1]) / 4;
+  const res = [];
+  const at = (arr, x, y) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= w || y >= h) return -1; return arr[y * w + x]; };
+  for (let e = 0; e < 4; e++) {
+    const A = q[e], B = q[(e + 1) % 4];
+    const L = Math.hypot(B[0] - A[0], B[1] - A[1]);
+    let nx = (B[1] - A[1]) / L, ny = -(B[0] - A[0]) / L;
+    const mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2;
+    if (nx * (cx - mx) + ny * (cy - my) > 0) { nx = -nx; ny = -ny; }
+    const R = Math.max(3, L * 0.07);
+    const off = new Float32Array(M + 1);
+    for (let k = 0; k <= M; k++) {
+      const t = k / M;
+      if (k === 0 || k === M) { off[k] = 0; continue; }
+      const px = A[0] + (B[0] - A[0]) * t, py = A[1] + (B[1] - A[1]) * t;
+      let bnd = null, inkOut = -R;
+      // quét từ ngoài vào trong
+      for (let d = R; d >= -R; d -= 0.5) {
+        const v = at(mask, px + nx * d, py + ny * d);
+        if (v === -1) continue;
+        if (v === 1) { bnd = d; break; }
+      }
+      for (let d = R; d >= -R; d -= 0.5) { if (at(ink, px + nx * d, py + ny * d) === 1) { inkOut = d; break; } }
+      if (bnd === null) bnd = 0;
+      off[k] = Math.max(bnd, inkOut + 1.5);
+    }
+    // làm mượt: trung vị 3, rồi khớp đa thức bậc 4 (mép giấy cong trơn), giới hạn biên độ
+    const m2 = off.slice();
+    for (let k = 1; k < M; k++) { const a = [off[k - 1], off[k], off[k + 1]].sort((x, y) => x - y); m2[k] = a[1]; }
+    const wt = new Float32Array(M + 1).fill(1);
+    const fit = polyFit(m2, wt, M + 1, 4);
+    const lim = L * 0.035;
+    for (let k = 0; k <= M; k++) off[k] = fit ? clamp(fit(k), -lim, lim) : 0;
+    const o0 = off[0], o1 = off[M];
+    for (let k = 0; k <= M; k++) off[k] -= o0 + (o1 - o0) * k / M;   // góc giữ nguyên
+    res.push({ A, B, nx, ny, off, M });
+  }
+  return res;
+}
+
+/* Hàm ánh xạ (u,v)->(x,y) nguồn: phối cảnh + hiệu chỉnh mép cong (Coons) */
+function buildMapper(q, edges) {
+  const Hm = squareToQuad(q);
+  if (!edges) return Hm;
+  const evalEdge = (E, P) => {
+    const dx = E.B[0] - E.A[0], dy = E.B[1] - E.A[1];
+    let s = ((P[0] - E.A[0]) * dx + (P[1] - E.A[1]) * dy) / (dx * dx + dy * dy);
+    s = clamp(s, 0, 1) * E.M; const k = Math.min(E.M - 1, Math.floor(s)), f = s - k;
+    const o = E.off[k] * (1 - f) + E.off[k + 1] * f;
+    return [E.nx * o, E.ny * o];
+  };
+  return (u, v) => {
+    const P = Hm(u, v);
+    const dt = evalEdge(edges[0], Hm(u, 0)), dr = evalEdge(edges[1], Hm(1, v));
+    const db = evalEdge(edges[2], Hm(u, 1)), dl = evalEdge(edges[3], Hm(0, v));
+    return [P[0] + (1 - v) * dt[0] + v * db[0] + (1 - u) * dl[0] + u * dr[0],
+            P[1] + (1 - v) * dt[1] + v * db[1] + (1 - u) * dl[1] + u * dr[1]];
+  };
+}
+
+function makeGrid(mapper, gx, gy) {
+  const G = new Float32Array((gx + 1) * (gy + 1) * 2);
+  for (let j = 0; j <= gy; j++) for (let i = 0; i <= gx; i++) {
+    const p = mapper(i / gx, j / gy), o = (j * (gx + 1) + i) * 2; G[o] = p[0]; G[o + 1] = p[1];
+  }
+  return { G, gx, gy };
+}
+
+function gridAt(grid, u, v, out) {
+  const { G, gx, gy } = grid;
+  const fu = clamp(u, 0, 1) * gx, fv = clamp(v, 0, 1) * gy;
+  const i = Math.min(gx - 1, fu | 0), j = Math.min(gy - 1, fv | 0), a = fu - i, b = fv - j;
+  const o00 = (j * (gx + 1) + i) * 2, o10 = o00 + 2, o01 = o00 + (gx + 1) * 2, o11 = o01 + 2;
+  out[0] = (G[o00] * (1 - a) + G[o10] * a) * (1 - b) + (G[o01] * (1 - a) + G[o11] * a) * b;
+  out[1] = (G[o00 + 1] * (1 - a) + G[o10 + 1] * a) * (1 - b) + (G[o01 + 1] * (1 - a) + G[o11 + 1] * a) * b;
+}
+
+function dilate1(m, w, h) {
+  const o = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let v = 0; for (let j = -1; j <= 1 && !v; j++) for (let i = -1; i <= 1; i++) { const xx = x + i, yy = y + j; if (xx >= 0 && yy >= 0 && xx < w && yy < h && m[yy * w + xx]) { v = 1; break; } }
+    o[y * w + x] = v;
+  }
+  return o;
+}
+
+/* Kết xuất ảnh theo lưới ánh xạ (nội suy song tuyến) */
+function renderGrid(src, grid, W, H, valid, pm) {
+  const { w, h, data } = src, out = new Uint8ClampedArray(W * H * 4), p = [0, 0];
+  for (let y = 0; y < H; y++) {
+    const v = (y + 0.5) / H;
+    for (let x = 0; x < W; x++) {
+      const o = (y * W + x) * 4;
+      gridAt(grid, (x + 0.5) / W, v, p);
+      let sx = p[0] - 0.5, sy = p[1] - 0.5;
+      if (valid && (sx < -1 || sy < -1 || sx > w || sy > h || isNaN(sx))) { out[o] = out[o + 1] = out[o + 2] = 255; out[o + 3] = 255; continue; }
+      if (pm) { const mx = (sx * pm.k) | 0, my = (sy * pm.k) | 0; if (mx >= 0 && my >= 0 && mx < pm.w && my < pm.h && !pm.m[my * pm.w + mx]) { out[o] = out[o + 1] = out[o + 2] = 255; out[o + 3] = 0; continue; } }
+      sx = clamp(sx, 0, w - 1.001); sy = clamp(sy, 0, h - 1.001);
+      const x0 = sx | 0, y0 = sy | 0, a = sx - x0, b = sy - y0;
+      const i00 = (y0 * w + x0) * 4, i10 = i00 + 4, i01 = i00 + w * 4, i11 = i01 + 4;
+      const w00 = (1 - a) * (1 - b), w10 = a * (1 - b), w01 = (1 - a) * b, w11 = a * b;
+      out[o] = data[i00] * w00 + data[i10] * w10 + data[i01] * w01 + data[i11] * w11;
+      out[o + 1] = data[i00 + 1] * w00 + data[i10 + 1] * w10 + data[i01 + 1] * w01 + data[i11 + 1] * w11;
+      out[o + 2] = data[i00 + 2] * w00 + data[i10 + 2] * w10 + data[i01 + 2] * w01 + data[i11 + 2] * w11;
+      out[o + 3] = 255;
+    }
+  }
+  return { w: W, h: H, data: out };
+}
+
+/* Nền giấy + mức mực theo khối: hi = phân vị sáng (giấy), lo = phân vị tối (mực) */
+function backgroundGrid(L, w, h, bs) {
+  const gw = Math.ceil(w / bs), gh = Math.ceil(h / bs), G = new Float32Array(gw * gh), Lo = new Float32Array(gw * gh);
+  const hist = new Uint32Array(64);
+  for (let by = 0; by < gh; by++) for (let bx = 0; bx < gw; bx++) {
+    hist.fill(0); let n = 0;
+    const y1 = Math.min(h, (by + 1) * bs), x1 = Math.min(w, (bx + 1) * bs);
+    const st = bs > 24 ? 2 : 1;
+    for (let y = by * bs; y < y1; y += st) for (let x = bx * bs; x < x1; x += st) { hist[clamp(L[y * w + x] >> 2, 0, 63)]++; n++; }
+    let c = 0, k = 63; const lim = n * 0.08;
+    for (; k > 0; k--) { c += hist[k]; if (c >= lim) break; }
+    let c2 = 0, k2 = 0; const lim2 = n * 0.03;
+    for (; k2 < 63; k2++) { c2 += hist[k2]; if (c2 >= lim2) break; }
+    G[by * gw + bx] = k * 4 + 2; Lo[by * gw + bx] = k2 * 4 + 2;
+  }
+  let D = new Float32Array(G.length);
+  for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) {
+    let m = 0; for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const xx = clamp(x + i, 0, gw - 1), yy = clamp(y + j, 0, gh - 1); m = Math.max(m, G[yy * gw + xx]); }
+    const blank = Lo[y * gw + x] > G[y * gw + x] * 0.72;   // khối giấy trống (không chữ): giữ đúng độ sáng của nó
+    D[y * gw + x] = blank ? G[y * gw + x] : Math.max(G[y * gw + x], m * 0.92);
+  }
+  D = boxBlur(boxBlur(D, gw, gh, 1), gw, gh, 1);
+  // tỉ lệ mực/giấy; lấy min lân cận để vùng có chữ lan sang khối kề
+  const R = new Float32Array(G.length);
+  for (let i = 0; i < R.length; i++) R[i] = clamp(Lo[i] / Math.max(30, D[i]), 0, 1);
+  const R2 = new Float32Array(G.length);
+  for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) {
+    let m = 1; for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const xx = clamp(x + i, 0, gw - 1), yy = clamp(y + j, 0, gh - 1); m = Math.min(m, R[yy * gw + xx]); }
+    R2[y * gw + x] = m;
+  }
+  // ngưỡng cục bộ: chữ đậm -> 0.72 ; chữ mờ -> tới 0.9 ; không có chữ -> 0.72
+  const T = new Float32Array(G.length);
+  for (let i = 0; i < T.length; i++) {
+    const r = R2[i];
+    T[i] = r > 0.9 ? 0.72 : clamp((1 + r) / 2 + 0.02, 0.72, 0.9);
+  }
+  const Tb = boxBlur(T, gw, gh, 1);
+  return { G: D, T: Tb, gw, gh, bs };
+}
+
+/* Tăng cường: khử bóng/nếp nhăn, giấy trắng, chữ đậm (ngưỡng thích nghi) */
+function enhance(img, mode) {
+  if (mode === 'original') return img;
+  const { w, h, data } = img, n = w * h;
+  const L = new Uint8Array(n);
+  for (let i = 0, j = 0; i < n; i++, j += 4) L[i] = (77 * data[j] + 150 * data[j + 1] + 29 * data[j + 2]) >> 8;
+  const bs = Math.max(12, Math.round(Math.min(w, h) / 36));
+  const { G, T, gw, gh } = backgroundGrid(L, w, h, bs);
+  // làm nét chữ (unsharp mask) trên độ sáng, áp tỉ lệ sang các kênh màu
+  const Lf = new Float32Array(n); for (let i = 0; i < n; i++) Lf[i] = L[i];
+  const bl = boxBlur(boxBlur(Lf, w, h, 1), w, h, 1);
+  const amt = 1.1;
+  const sharpK = new Float32Array(n);
+  for (let i = 0; i < n; i++) { const v = clamp(Lf[i] + amt * (Lf[i] - bl[i]), 0, 255); sharpK[i] = (v + 1) / (Lf[i] + 1); L[i] = v; }
+  for (let i = 0, j = 0; i < n; i++, j += 4) { const k = sharpK[i]; data[j] = clamp(data[j] * k, 0, 255); data[j + 1] = clamp(data[j + 1] * k, 0, 255); data[j + 2] = clamp(data[j + 2] * k, 0, 255); }
+  const out = new Uint8ClampedArray(n * 4);
+  const det = mode === 'gray' ? null : new Uint8ClampedArray(n * 4);
+  const inkM = new Uint8Array(n), ratio = new Float32Array(n);
+  const tone = (r, t) => {               // màu/xám: điểm trắng = t + 0.08
+    const hi = Math.min(0.97, t + 0.08);
+    if (r >= hi) return 255;
+    const x = r / hi; return 255 * Math.pow(x, 1.4 + (t - 0.72) * 10);
+  };
+  const bw = (r, t) => { const q = clamp((r - (t - 0.05)) / 0.1, 0, 1); return 255 * q * q * (3 - 2 * q); };
+  for (let y = 0; y < h; y++) {
+    const fy = clamp((y + 0.5) / bs - 0.5, 0, gh - 1), j0 = Math.max(0, Math.min(gh - 2, fy | 0)), b = gh > 1 ? fy - j0 : 0, j1 = Math.min(gh - 1, j0 + 1);
+    for (let x = 0; x < w; x++) {
+      const fx = clamp((x + 0.5) / bs - 0.5, 0, gw - 1), i0 = Math.max(0, Math.min(gw - 2, fx | 0)), a = gw > 1 ? fx - i0 : 0, i1 = Math.min(gw - 1, i0 + 1);
+      const w00 = (1 - a) * (1 - b), w10 = a * (1 - b), w01 = (1 - a) * b, w11 = a * b;
+      const Bk = Math.max(30, G[j0 * gw + i0] * w00 + G[j0 * gw + i1] * w10 + G[j1 * gw + i0] * w01 + G[j1 * gw + i1] * w11);
+      const t = T[j0 * gw + i0] * w00 + T[j0 * gw + i1] * w10 + T[j1 * gw + i0] * w01 + T[j1 * gw + i1] * w11;
+      const p = y * w + x, o = p * 4;
+      if (det) { det[o] = det[o + 1] = det[o + 2] = tone(L[p] / Bk, t); }
+      inkM[p] = bw(L[p] / Bk, t) < 140 ? 1 : 0; ratio[p] = L[p] / Bk;
+      if (mode === 'color') {
+        out[o] = tone(data[o] / Bk, t); out[o + 1] = tone(data[o + 1] / Bk, t); out[o + 2] = tone(data[o + 2] / Bk, t);
+      } else if (mode === 'gray') {
+        out[o] = out[o + 1] = out[o + 2] = tone(L[p] / Bk, t);
+      } else {
+        out[o] = out[o + 1] = out[o + 2] = bw(L[p] / Bk, t);
+      }
+      out[o + 3] = 255;
+    }
+  }
+  const preClean = out.slice();
+  cleanSmudges(det || out, w, h, out);
+  // chữ nhạt (in nhiệt mờ, logo xám): tối hơn hẳn vùng lân cận -> cũng là nét chữ
+  { const rb = boxBlur(ratio, w, h, 3);
+    // độ sáng giấy ngay cạnh (max cửa sổ), không bị vệt tối bên cạnh kéo xuống
+    const R = 6, mh = new Float32Array(n), mx = new Float32Array(n);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let m = 0; for (let k = -R; k <= R; k += 2) { const xx = x + k; if (xx >= 0 && xx < w) { const v = ratio[y * w + xx]; if (v > m) m = v; } } mh[y * w + x] = m; }
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let m = 0; for (let k = -R; k <= R; k += 2) { const yy = y + k; if (yy >= 0 && yy < h) { const v = mh[yy * w + x]; if (v > m) m = v; } } mx[y * w + x] = m; }
+    for (let i = 0; i < n; i++) if (!inkM[i] && ratio[i] < 0.93 && (ratio[i] < rb[i] - 0.045 || ratio[i] < mx[i] - 0.14)) inkM[i] = 1; }
+  typedPaper(out, w, h, inkM, mode, det || out, preClean);
+  cleanBorders(out, w, h);
+  neatFrame(out, w, h, inkM, det || out);
+  return { w, h, data: out };
+}
+
+
+/* Xóa vết nhòe không phải chữ dính mép ảnh (mặt bàn lọt vào ở góc cong, bóng tối):
+   vùng tối + mịn (không có nét chữ sắc) + nối với mép -> tô trắng. Chữ, mã QR có nhiều nét sắc nên được giữ. */
+function cleanSmudges(px, w, h, outPx) {
+  outPx = outPx || px;
+  const f = Math.max(1, Math.round(Math.max(w, h) / 900));
+  const sw = Math.ceil(w / f), sh = Math.ceil(h / f), n = sw * sh;
+  const L = new Float32Array(n);
+  for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) {
+    let s = 0, c = 0;
+    for (let j = 0; j < f; j++) for (let i = 0; i < f; i++) { const xx = x * f + i, yy = y * f + j; if (xx < w && yy < h) { const o = (yy * w + xx) * 4; s += px[o] * 0.3 + px[o + 1] * 0.59 + px[o + 2] * 0.11; c++; } }
+    L[y * sw + x] = s / c;
+  }
+  // mật độ nét sắc quanh mỗi điểm
+  const ed = new Float32Array(n);
+  for (let y = 1; y < sh - 1; y++) for (let x = 1; x < sw - 1; x++) {
+    const p = y * sw + x, gx = L[p + 1] - L[p - 1], gy = L[p + sw] - L[p - sw];
+    ed[p] = Math.hypot(gx, gy) > 35 ? 1 : 0;
+  }
+  const dens = boxBlur(ed, sw, sh, 4);
+  const dark = new Uint8Array(n), cand = new Uint8Array(n);
+  for (let i = 0; i < n; i++) { dark[i] = L[i] < 200 ? 1 : 0; cand[i] = ((L[i] < 150 && dens[i] < 0.06) || (L[i] < 110 && dens[i] < 0.18)) ? 1 : 0; }
+  // chỉ giữ các đốm nhòe đủ rộng (vết mặt bàn), bỏ đốm nhỏ cỡ chữ
+  { const lc = new Int32Array(n), stk = []; const minA = n * 0.0008;
+    for (let s0 = 0; s0 < n; s0++) { if (!cand[s0] || lc[s0]) continue; const comp = [s0]; lc[s0] = 1; stk.push(s0);
+      while (stk.length) { const p = stk.pop(), x = p % sw, y = (p / sw) | 0;
+        for (const q of [x > 0 ? p - 1 : -1, x < sw - 1 ? p + 1 : -1, y > 0 ? p - sw : -1, y < sh - 1 ? p + sw : -1]) if (q >= 0 && cand[q] && !lc[q]) { lc[q] = 1; stk.push(q); comp.push(q); } }
+      if (comp.length < minA) for (const p of comp) cand[p] = 0; } }
+  // lan từ mép ảnh qua các điểm "nhòe"; cho phép đi qua vùng tối lân cận nhưng chỉ khi gần điểm nhòe
+  const nearCand = morph(cand, sw, sh, 2, true);
+  const rem = new Uint8Array(n), st = new Int32Array(n); let sp = 0;
+  const band = Math.round(Math.min(sw, sh) * 0.03);
+  for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) {
+    if (x > band && y > band && x < sw - 1 - band && y < sh - 1 - band) continue;
+    const p = y * sw + x; if (cand[p] && !rem[p]) { rem[p] = 1; st[sp++] = p; }
+  }
+  while (sp) {
+    const p = st[--sp], x = p % sw, y = (p / sw) | 0;
+    const nb = [x > 0 ? p - 1 : -1, x < sw - 1 ? p + 1 : -1, y > 0 ? p - sw : -1, y < sh - 1 ? p + sw : -1];
+    for (const q of nb) if (q >= 0 && !rem[q] && dark[q] && nearCand[q]) { rem[q] = 1; st[sp++] = q; }
+  }
+  // nới 1 điểm để xóa viền mờ, rồi tô trắng ở độ phân giải đầy đủ (có làm mềm theo độ sáng)
+  const R2 = morph(rem, sw, sh, 1, true);
+  for (let y = 0; y < h; y++) {
+    const yy = Math.min(sh - 1, (y / f) | 0);
+    for (let x = 0; x < w; x++) {
+      if (!R2[yy * sw + Math.min(sw - 1, (x / f) | 0)]) continue;
+      const o = (y * w + x) * 4; outPx[o] = outPx[o + 1] = outPx[o + 2] = 255;
+    }
+  }
+}
+
+
+
+/* Như giấy đánh máy: chỉ giữ nét chữ; mọi chỗ khác trắng tuyệt đối.
+   Bỏ các mảng đen dày đặc không phải chữ (bóng, vết bẩn); giữ chữ mảnh, chữ mờ, mã QR. */
+function typedPaper(px, w, h, inkM, mode, tonePx, preClean) {
+  const n = w * h;
+  // nét chữ đã bị các bước dọn mép tô trắng thì bỏ khỏi mặt nạ
+  for (let i = 0; i < n; i++) if (inkM[i] && px[i * 4] === 255 && px[i * 4 + 1] === 255 && px[i * 4 + 2] === 255 && (!preClean || preClean[i * 4] !== 255 || preClean[i * 4 + 1] !== 255)) inkM[i] = 0;
+  // cắt viền mép giấy khỏi chữ: trong dải sát mép, đoạn mực chạy song song mép dài hơn một con chữ = viền
+  { const bw = Math.round(w * 0.045), bh = Math.round(h * 0.045), rv = Math.max(12, h * 0.025), rh = Math.max(12, w * 0.07);
+    const thick = (x, y, dx, dy) => { let t = 0; for (let k = -12; k <= 12; k++) { const xx = x + k * dx, yy = y + k * dy; if (xx >= 0 && yy >= 0 && xx < w && yy < h && inkM[yy * w + xx]) t++; } return t; };
+    const thinRunV = (x, s, e) => { let c = 0, tot = 0; for (let y = s; y < e; y += Math.max(1, ((e - s) / 8) | 0)) { tot++; if (thick(x, y, 1, 0) <= Math.max(5, w * 0.006)) c++; } return c >= tot * 0.7; };
+    const thinRunH = (y, s, e) => { let c = 0, tot = 0; for (let x = s; x < e; x += Math.max(1, ((e - s) / 8) | 0)) { tot++; if (thick(x, y, 0, 1) <= Math.max(5, h * 0.006)) c++; } return c >= tot * 0.7; };
+    const runV = x => { let s = -1; for (let y = 0; y <= h; y++) { const on = y < h && inkM[y * w + x]; if (on && s < 0) s = y; if (!on && s >= 0) { if (y - s > rv && thinRunV(x, s, y)) for (let k = s; k < y; k++) inkM[k * w + x] = 0; s = -1; } } };
+    const runH = y => { let s = -1; for (let x = 0; x <= w; x++) { const on = x < w && inkM[y * w + x]; if (on && s < 0) s = x; if (!on && s >= 0) { if (x - s > rh && thinRunH(y, s, x)) for (let k = s; k < x; k++) inkM[y * w + k] = 0; s = -1; } } };
+    for (let x = 0; x < bw; x++) { runV(x); runV(w - 1 - x); }
+    for (let y = 0; y < bh; y++) { runH(y); runH(h - 1 - y); } }
+  const lab = new Int32Array(n), st = new Int32Array(n), minD = Math.min(w, h), cand = [], smalls = [];
+  const smallA = Math.max(8, (minD * 0.005) ** 2);
+  let cur = 0;
+  for (let s0 = 0; s0 < n; s0++) {
+    if (!inkM[s0] || lab[s0]) continue;
+    cur++; let sp = 0, area = 0, per = 0, x0 = w, x1 = 0, y0 = h, y1 = 0, minT = 255; st[sp++] = s0; lab[s0] = cur; const comp = [];
+    while (sp) {
+      const p = st[--sp], x = p % w, y = (p / w) | 0; area++; comp.push(p);
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      if (tonePx) { const tv = tonePx[p * 4]; if (tv < minT) minT = tv; }
+      const nb = [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, y > 0 ? p - w : -1, y < h - 1 ? p + w : -1];
+      for (const q of nb) { if (q < 0 || !inkM[q]) { per++; continue; } if (!lab[q]) { lab[q] = cur; st[sp++] = q; } }
+    }
+    const thick = 2 * area / Math.max(1, per);           // độ dày nét trung bình
+    // mảng đặc, dày (bóng/vết đen) -> bỏ ; chấm nhiễu lẻ tẻ rất nhỏ -> bỏ
+    // đường viền mép giấy: dài, mảnh, nằm sát mép ảnh
+    const bwid = x1 - x0 + 1, bhei = y1 - y0 + 1;
+    const nearEdge = x0 < w * 0.04 || x1 > w * 0.96 || y0 < h * 0.04 || y1 > h * 0.96;
+    const longThin = (bhei > h * 0.06 && bhei > bwid * 5) || (bwid > w * 0.08 && bwid > bhei * 5);
+    // ứng viên đốm mép: nằm gọn trong dải sát mép trái/phải, không có lõi đậm (xét lẻ loi ở bước sau)
+    const inBand = x1 < w * 0.12 || x0 > w * 0.88;
+    if (inBand) cand.push({ comp, x0, x1, y0, y1, dark: minT <= 85 });
+    const touchB = x0 <= 1 || y0 <= 1 || x1 >= w - 2 || y1 >= h - 2;
+    const tbDash = (y1 < h * 0.05 || y0 > h * 0.95) && (((y1 - y0 + 1) <= Math.max(3, h * 0.004) && (x1 - x0 + 1) > (y1 - y0 + 1) * 3) || ((x1 - x0 + 1) > w * 0.12 && (y1 - y0 + 1) < h * 0.012));
+    if (touchB && area > n * 0.0015) { cand.push({ comp, x0, x1, y0, y1, dark: minT <= 85, big: true }); continue; }   // vật chạm mép: tách viền/chữ ở bước sau
+    if ((area > n * 0.0002 && thick > minD * 0.012) || area < 3 || tbDash) { for (const p of comp) inkM[p] = 0; continue; }
+    if (area < smallA) smalls.push({ id: cur, x0, x1, y0, y1, comp });
+    if (nearEdge && longThin) {
+      // chỉ cắt phần viền (đoạn chạy dài liền mạch theo phương của cụm), giữ chữ cái dính vào
+      const vert = bhei > bwid, lim = vert ? Math.max(12, h * 0.025) : Math.max(12, w * 0.07);
+      const inC = new Set(comp);
+      if (vert) { for (let x = x0; x <= x1; x++) { let s = -1; for (let y = y0; y <= y1 + 1; y++) { const on = y <= y1 && inC.has(y * w + x); if (on && s < 0) s = y; if (!on && s >= 0) { if (y - s > lim) for (let k = s; k < y; k++) inkM[k * w + x] = 0; s = -1; } } } }
+      else { for (let y = y0; y <= y1; y++) { let s = -1; for (let x = x0; x <= x1 + 1; x++) { const on = x <= x1 && inC.has(y * w + x); if (on && s < 0) s = x; if (!on && s >= 0) { if (x - s > lim) for (let k = s; k < x; k++) inkM[y * w + k] = 0; s = -1; } } } }
+      // mẩu còn lại của viền: tách thành từng mẩu, xét lẻ loi ở bước sau
+      const rest = comp.filter(p => inkM[p]), seen = new Set();
+      for (const p0 of rest) {
+        if (seen.has(p0)) continue;
+        const piece = [], q = [p0]; seen.add(p0); let a0 = w, a1 = 0, b0 = h, b1 = 0;
+        while (q.length) { const p = q.pop(); piece.push(p); const x = p % w, y = (p / w) | 0; if (x < a0) a0 = x; if (x > a1) a1 = x; if (y < b0) b0 = y; if (y > b1) b1 = y;
+          for (const r of [p - 1, p + 1, p - w, p + w]) if (r >= 0 && r < n && inkM[r] && inC.has(r) && !seen.has(r)) { seen.add(r); q.push(r); } }
+        cand.push({ comp: piece, x0: a0, x1: a1, y0: b0, y1: b1, dark: tonePx ? piece.some(p => tonePx[p * 4] <= 85) : true });
+      }
+    }
+  }
+  // đốm mép lẻ loi (không có nét chữ nào gần trong cùng hàng) -> bỏ; chữ cái đầu dòng luôn sát chữ khác
+  if (cand.length) {
+    // cụm cao (viền dính chữ): cắt các đoạn dọc dài hơn con chữ, phần còn lại tách thành cụm nhỏ để xét riêng
+    const limV = Math.max(10, h * 0.02), extra = [];
+    for (const c of cand) {
+      if ((c.y1 - c.y0) <= h * 0.03 && !c.big) continue;
+      const inC = new Set(c.comp);
+      { const limH = Math.max(10, w * 0.04);   // đoạn ngang dài (mép trên/dưới của vật) cũng cắt
+        for (let y = c.y0; y <= c.y1; y++) { let s0 = -1; for (let x = c.x0; x <= c.x1 + 1; x++) { const on = x <= c.x1 && inC.has(y * w + x) && inkM[y * w + x]; if (on && s0 < 0) s0 = x; if (!on && s0 >= 0) { if (x - s0 > limH) for (let k = s0; k < x; k++) inkM[y * w + k] = 0; s0 = -1; } } } }
+      for (let x = c.x0; x <= c.x1; x++) { let s0 = -1; for (let y = c.y0; y <= c.y1 + 1; y++) { const on = y <= c.y1 && inC.has(y * w + x) && inkM[y * w + x]; if (on && s0 < 0) s0 = y; if (!on && s0 >= 0) { if (y - s0 > limV) for (let k = s0; k < y; k++) inkM[k * w + x] = 0; s0 = -1; } } }
+      const seen = new Set();
+      for (const p0 of c.comp) {
+        if (!inkM[p0] || seen.has(p0)) continue;
+        const piece = [], q = [p0]; seen.add(p0); let a0 = w, a1 = 0, b0 = h, b1 = 0;
+        while (q.length) { const p = q.pop(); piece.push(p); const x = p % w, y = (p / w) | 0; if (x < a0) a0 = x; if (x > a1) a1 = x; if (y < b0) b0 = y; if (y > b1) b1 = y;
+          for (const r of [p - 1, p + 1, p - w, p + w]) if (r >= 0 && r < n && inkM[r] && inC.has(r) && !seen.has(r)) { seen.add(r); q.push(r); } }
+        if (c.big && piece.length > n * 0.0004) { for (const p of piece) inkM[p] = 0; continue; }
+        extra.push({ comp: piece, x0: a0, x1: a1, y0: b0, y1: b1, dark: tonePx ? piece.some(p => tonePx[p * 4] <= 85) : true });
+      }
+      c.comp = []; c.y1 = c.y0;   // cụm gốc đã xử lý
+    }
+    for (const e of extra) cand.push(e);
+    const isC = new Uint8Array(n); for (const c of cand) for (const p of c.comp) isC[p] = 1;
+    const D = Math.round(w * 0.025);
+    // lan liên hoàn: cụm gần nét chữ thật, hoặc gần cụm đã được giữ, thì được giữ
+    let changed = true, it = 0;
+    while (changed && it++ < 10) {
+      changed = false;
+      for (const c of cand) {
+        if (c.keep || (c.y1 - c.y0) > h * 0.03) continue;
+        let near = false;
+        const xa = Math.max(0, c.x0 - D), xb = Math.min(w - 1, c.x1 + D), ya = c.y0, yb = c.y1;
+        for (let y = ya; y <= yb && !near; y++) for (let x = xa; x <= xb; x++) { const q = y * w + x; if (inkM[q] && isC[q] !== 1) { near = true; break; } }
+        if (near) { c.keep = true; changed = true; const letter = (c.y1 - c.y0) < h * 0.02 && (c.x1 - c.x0) < w * 0.05; if (c.dark || letter) for (const p of c.comp) isC[p] = 2; }
+      }
+    }
+    for (const c of cand) if (!c.keep || (c.y1 - c.y0) > h * 0.03) for (const p of c.comp) inkM[p] = 0;
+  }
+  // chấm lẻ loi giữa trang (vết chữ mặt sau in xuyên, bụi): không có nét nào khác gần trong cùng hàng -> bỏ
+  { const D = Math.max(6, Math.round(w * 0.02));
+    for (const c of smalls) {
+      if (!inkM[c.comp[0]]) continue;
+      let near = false;
+      const xa = Math.max(0, c.x0 - D), xb = Math.min(w - 1, c.x1 + D), ya = Math.max(0, c.y0 - 3), yb = Math.min(h - 1, c.y1 + 3);
+      for (let y = ya; y <= yb && !near; y++) for (let x = xa; x <= xb; x++) { const q = y * w + x; if (inkM[q] && lab[q] !== c.id) { near = true; break; } }
+      if (!near) for (const p of c.comp) inkM[p] = 0;
+    } }
+  // giữ viền mềm quanh nét chữ (1-2 điểm) để chữ không bị răng cưa
+  const keep = morph(inkM, w, h, mode === 'bw' ? 1 : 2, true);
+  // chỉ tô trắng chỗ trơn đều (bóng, nền xám, nhiễu); chỗ có biến đổi sáng-tối (chữ nhòe, logo) giữ lại
+  const tp = tonePx || px, v = new Float32Array(n), v2 = new Float32Array(n);
+  for (let i = 0; i < n; i++) { const g = tp[i * 4]; v[i] = g; v2[i] = g * g; }
+  const mv = boxBlur(v, w, h, 3), mv2 = boxBlur(v2, w, h, 3);
+  const nearInk = morph(inkM, w, h, Math.max(5, Math.round(minD / 180)), true);
+  // đen trắng: nét chữ mờ (đã nhận là chữ) in đậm lại như chữ đánh máy
+  if (mode === 'bw') for (let i = 0; i < n; i++) if (inkM[i]) { const o = i * 4, t = Math.round(tp[o] * 0.45); if (t < px[o]) px[o] = px[o + 1] = px[o + 2] = t; }
+  for (let i = 0; i < n; i++) {
+    if (keep[i]) continue;
+    const sd = Math.sqrt(Math.max(0, mv2[i] - mv[i] * mv[i]));
+    if (sd < 6 || !nearInk[i]) { const o = i * 4; px[o] = px[o + 1] = px[o + 2] = 255; }
+  }
+}
+
+/* Khung gọn như bản scan: tìm vùng có chữ (bỏ dải sát mép), giữ lề trắng đều, tô trắng phần ngoài (viền, mép xấu) */
+function neatFrame(px, w, h, inkM, tonePx) {
+  const tp = tonePx || px;
+  const bx = Math.round(w * 0.02), by = Math.round(h * 0.02), n = w * h;
+  const ink = new Uint8Array(n);
+  for (let i = 0; i < n; i++) ink[i] = (inkM ? inkM[i] : 1) && (px[i * 4] < 235) ? 1 : 0;
+  // diện tích từng cụm nét để bỏ lốm đốm nhỏ khi xét cột
+  const lab = new Int32Array(n), area = [0], st = new Int32Array(n); let cur = 0;
+  for (let s0 = 0; s0 < n; s0++) {
+    if (!ink[s0] || lab[s0]) continue;
+    cur++; let sp = 0, a = 0; st[sp++] = s0; lab[s0] = cur;
+    while (sp) { const p = st[--sp], x = p % w, y = (p / w) | 0; a++;
+      if (x > 0 && ink[p - 1] && !lab[p - 1]) { lab[p - 1] = cur; st[sp++] = p - 1; }
+      if (x < w - 1 && ink[p + 1] && !lab[p + 1]) { lab[p + 1] = cur; st[sp++] = p + 1; }
+      if (y > 0 && ink[p - w] && !lab[p - w]) { lab[p - w] = cur; st[sp++] = p - w; }
+      if (y < h - 1 && ink[p + w] && !lab[p + w]) { lab[p + w] = cur; st[sp++] = p + w; } }
+    area.push(a);
+  }
+  const big = Math.max(40, n * 0.000015);
+  // đường dài mảnh (mép chồng giấy) không tính là vùng chữ
+  const bx0 = new Int32Array(cur + 1).fill(w), bx1 = new Int32Array(cur + 1), by0 = new Int32Array(cur + 1).fill(h), by1 = new Int32Array(cur + 1);
+  for (let i = 0; i < n; i++) { const l = lab[i]; if (!l) continue; const x = i % w, y = (i / w) | 0; if (x < bx0[l]) bx0[l] = x; if (x > bx1[l]) bx1[l] = x; if (y < by0[l]) by0[l] = y; if (y > by1[l]) by1[l] = y; }
+  const thinLine = new Uint8Array(cur + 1);
+  for (let l = 1; l <= cur; l++) { const bw2 = bx1[l] - bx0[l] + 1, bh2 = by1[l] - by0[l] + 1; if ((bw2 > w * 0.12 && bh2 < h * 0.012) || (bh2 > h * 0.12 && bw2 < w * 0.012)) thinLine[l] = 1; }
+  const col = new Int32Array(w), row = new Int32Array(h);
+  for (let y = by; y < h - by; y++) for (let x = bx; x < w - bx; x++) {
+    const i = y * w + x; if (!ink[i]) continue;
+    if (area[lab[i]] >= big && tp[i * 4] < 140 && !thinLine[lab[i]]) { col[x]++; row[y]++; }
+  }
+  const cT = Math.max(4, h * 0.006), rT = Math.max(3, w * 0.006);
+  const ok = (arr, i, T) => arr[i] >= T && (arr[i - 1] >= T * 0.5 || arr[i + 1] >= T * 0.5);
+  let l = -1, r = -1, t = -1, b = -1;
+  for (let x = Math.max(1, bx); x < w - Math.max(1, bx); x++) if (ok(col, x, cT)) { if (l < 0) l = x; r = x; }
+  for (let y = Math.max(1, by); y < h - Math.max(1, by); y++) if (ok(row, y, rT)) { if (t < 0) t = y; b = y; }
+  if (l < 0 || t < 0 || r - l < w * 0.3 || b - t < h * 0.2) return;
+  const m = Math.round(Math.min(w, h) * 0.035);
+  const L0 = Math.max(0, l - m), R0 = Math.min(w - 1, r + m), T0 = Math.max(0, t - m), B0 = Math.min(h - 1, b + m);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (x >= L0 && x <= R0 && y >= T0 && y <= B0) continue;
+    const o = (y * w + x) * 4; px[o] = px[o + 1] = px[o + 2] = 255;
+  }
+}
+
+/* Xóa vệt tối dài chạy song song mép ảnh (bóng mép giấy); nét chữ ngắn nên không bị xóa */
+function cleanBorders(px, w, h) {
+  const dark = p => px[p * 4] + px[p * 4 + 1] + px[p * 4 + 2] < 560;
+  const white = p => { px[p * 4] = px[p * 4 + 1] = px[p * 4 + 2] = 255; };
+  const bh = Math.round(h * 0.06), bw = Math.round(w * 0.06);
+  const minH = w * 0.06, minV = h * 0.05;
+  // độ dày theo phương vuông góc tại vài điểm của đoạn: viền mép giấy mỏng, logo/dòng chữ dày
+  const thinH = (y, s, e) => { const lim = Math.max(5, h * 0.006); let c = 0, tot = 0; for (let x = s; x < e; x += Math.max(1, ((e - s) / 8) | 0)) { let t = 0; for (let k = -12; k <= 12; k++) { const yy = y + k; if (yy >= 0 && yy < h && dark(yy * w + x)) t++; } tot++; if (t <= lim) c++; } return c >= tot * 0.7; };
+  const thinV = (x, s, e) => { const lim = Math.max(5, w * 0.006); let c = 0, tot = 0; for (let y = s; y < e; y += Math.max(1, ((e - s) / 8) | 0)) { let t = 0; for (let k = -12; k <= 12; k++) { const xx = x + k; if (xx >= 0 && xx < w && dark(y * w + xx)) t++; } tot++; if (t <= lim) c++; } return c >= tot * 0.7; };
+  const rowsRun = y => { let s = -1; for (let x = 0; x <= w; x++) { const d = x < w && dark(y * w + x); if (d && s < 0) s = x; if (!d && s >= 0) { if (x - s > minH && thinH(y, s, x)) for (let k = s; k < x; k++) white(y * w + k); s = -1; } } };
+  const colsRun = x => { let s = -1; for (let y = 0; y <= h; y++) { const d = y < h && dark(y * w + x); if (d && s < 0) s = y; if (!d && s >= 0) { if (y - s > minV && thinV(x, s, y)) for (let k = s; k < y; k++) white(k * w + x); s = -1; } } };
+  for (let y = 0; y < bh; y++) { rowsRun(y); rowsRun(h - 1 - y); }
+  // gạch mảnh sát mép ngoài cùng (2%): xóa cả đoạn ngắn hơn
+  { const b2h = Math.round(h * 0.02), b2w = Math.round(w * 0.02), mh = w * 0.03, mv = h * 0.03;
+    const rr = y => { let s = -1; for (let x = 0; x <= w; x++) { const d = x < w && dark(y * w + x); if (d && s < 0) s = x; if (!d && s >= 0) { if (x - s > mh) for (let k = s; k < x; k++) white(y * w + k); s = -1; } } };
+    const cc = x => { let s = -1; for (let y = 0; y <= h; y++) { const d = y < h && dark(y * w + x); if (d && s < 0) s = y; if (!d && s >= 0) { if (y - s > mv) for (let k = s; k < y; k++) white(k * w + x); s = -1; } } };
+    for (let y = 0; y < b2h; y++) { rr(y); rr(h - 1 - y); }
+    for (let x = 0; x < b2w; x++) { cc(x); cc(w - 1 - x); } }
+  for (let x = 0; x < bw; x++) { colsRun(x); colsRun(w - 1 - x); }
+}
+
+/* Ước lượng trường uốn cong dòng chữ (dịch dọc theo x,y) trên ảnh đã nắn */
+function textLineField(img) {
+  const { w, h } = img;
+  const L = toGray(img);
+  const bg = boxBlur(L, w, h, Math.max(6, Math.round(w / 40)));
+  const ink = new Float32Array(w * h);
+  for (let i = 0; i < ink.length; i++) ink[i] = (bg[i] > 50 && L[i] < bg[i] * 0.8) ? 1 : 0;
+  // chu kỳ dòng từ tự tương quan hồ sơ hàng (dải giữa)
+  const prof = new Float32Array(h);
+  for (let y = 0; y < h; y++) { let s = 0; for (let x = (w * 0.3) | 0; x < w * 0.7; x++) s += ink[y * w + x]; prof[y] = s; }
+  let mean = 0; for (let y = 0; y < h; y++) mean += prof[y]; mean /= h;
+  if (mean < w * 0.4 * 0.01) return null;
+  let P = 0, bestc = 0;
+  const ac = lag => { let s = 0; for (let y = 0; y + lag < h; y++) s += (prof[y] - mean) * (prof[y + lag] - mean); return s / (h - lag); };
+  const c0 = ac(0);
+  for (let lag = 6; lag < Math.min(120, h / 4); lag++) { const c = ac(lag); if (c > bestc && c > ac(lag - 1) && c >= ac(lag + 1)) { bestc = c; P = lag; break; } }
+  if (!P || bestc < c0 * 0.15) P = Math.round(h / 40);
+  const K = 16, step = w / K, hw = step; // dải chồng lấn
+  const band = Math.max(4 * P, 40), M = Math.max(1, Math.round(h / band));
+  const maxS = Math.max(2, Math.round(P * 0.4));
+  const D = new Float32Array((K) * (M)); const Wt = new Float32Array(K * M);
+  const strip = new Float32Array(K * h);
+  for (let k = 0; k < K; k++) {
+    const x0 = Math.max(0, Math.round((k + 0.5) * step - hw)), x1 = Math.min(w, Math.round((k + 0.5) * step + hw));
+    for (let y = 0; y < h; y++) { let s = 0; for (let x = x0; x < x1; x++) s += ink[y * w + x]; strip[k * h + y] = s; }
+  }
+  for (let m = 0; m < M; m++) {
+    const y0 = Math.round(m * h / M), y1 = Math.round((m + 1) * h / M);
+    const sh = new Float32Array(K), cf = new Float32Array(K);
+    for (let k = 0; k < K - 1; k++) {
+      let e1 = 0, e2 = 0;
+      for (let y = y0; y < y1; y++) { e1 += strip[k * h + y]; e2 += strip[(k + 1) * h + y]; }
+      const need = (y1 - y0) * hw * 2 * 0.012;
+      if (e1 < need || e2 < need) { cf[k] = 0; continue; }
+      const sc = []; let best = -1e18, bs = 0;
+      for (let s = -maxS; s <= maxS; s++) {
+        let c = 0, a1 = 0, a2 = 0, nn = 0;
+        for (let y = y0; y < y1; y++) { const yy = y + s; if (yy < 0 || yy >= h) continue; a1 += strip[k * h + y]; a2 += strip[(k + 1) * h + yy]; nn++; }
+        a1 /= nn; a2 /= nn;
+        for (let y = y0; y < y1; y++) { const yy = y + s; if (yy < 0 || yy >= h) continue; c += (strip[k * h + y] - a1) * (strip[(k + 1) * h + yy] - a2); }
+        sc.push(c); if (c > best) { best = c; bs = s; }
+      }
+      const idx = bs + maxS; let sub = bs;
+      if (idx > 0 && idx < sc.length - 1) { const d = sc[idx - 1] - 2 * sc[idx] + sc[idx + 1]; if (d < 0) sub = bs + 0.5 * (sc[idx - 1] - sc[idx + 1]) / d; }
+      if (Math.abs(bs) === maxS) { cf[k] = 0; continue; }
+      sh[k] = sub; cf[k] = 1;
+    }
+    // tích lũy từ dải giữa
+    const kc = K >> 1, d = new Float32Array(K), ok = new Float32Array(K); ok[kc] = 1;
+    for (let k = kc; k < K - 1; k++) { d[k + 1] = d[k] + (cf[k] ? sh[k] : 0); ok[k + 1] = cf[k]; }
+    for (let k = kc - 1; k >= 0; k--) { d[k] = d[k + 1] - (cf[k] ? sh[k] : 0); ok[k] = cf[k]; }
+    let nok = 0; for (let k = 0; k < K - 1; k++) nok += cf[k];
+    // khớp đa thức bậc 3 có trọng số
+    const fit = polyFit(d, ok, K, 3);
+    for (let k = 0; k < K; k++) { D[m * K + k] = fit ? fit(k) : 0; Wt[m * K + k] = nok >= K * 0.4 ? 1 : 0; }
+  }
+  // dải không đủ chữ: nội suy từ dải lân cận
+  for (let m = 0; m < M; m++) if (!Wt[m * K]) {
+    let up = -1, dn = -1;
+    for (let j = m - 1; j >= 0; j--) if (Wt[j * K]) { up = j; break; }
+    for (let j = m + 1; j < M; j++) if (Wt[j * K]) { dn = j; break; }
+    for (let k = 0; k < K; k++) {
+      let v = 0;
+      if (up >= 0 && dn >= 0) { const t = (m - up) / (dn - up); v = D[up * K + k] * (1 - t) + D[dn * K + k] * t; }
+      else if (up >= 0) v = D[up * K + k]; else if (dn >= 0) v = D[dn * K + k];
+      D[m * K + k] = v;
+    }
+  }
+  // làm mượt theo chiều dọc
+  if (M >= 3) { const T = D.slice(); for (let m = 0; m < M; m++) for (let k = 0; k < K; k++) { let s = 0, c = 0; for (let j = m - 1; j <= m + 1; j++) if (j >= 0 && j < M) { s += T[j * K + k]; c++; } D[m * K + k] = s / c; } }
+  // an toàn: trong mỗi dải, độ dịch chênh lệch giữa các cột không quá 0.45 khoảng cách dòng
+  //  -> không bao giờ dịch nhầm sang dòng bên cạnh
+  for (let m = 0; m < M; m++) {
+    let lo = 1e9, hi = -1e9; for (let k = 0; k < K; k++) { lo = Math.min(lo, D[m * K + k]); hi = Math.max(hi, D[m * K + k]); }
+    const rng = hi - lo, lim = P * 0.25;
+    if (rng > lim) { const c0 = D[m * K + (K >> 1)], f = lim / rng; for (let k = 0; k < K; k++) D[m * K + k] = c0 + (D[m * K + k] - c0) * f; }
+  }
+  let mx = 0; for (let i = 0; i < D.length; i++) { D[i] = clamp(D[i], -h * 0.06, h * 0.06); mx = Math.max(mx, Math.abs(D[i])); }
+  if (mx < 1.0) return null;
+  // chuẩn hóa về đơn vị chiều cao
+  for (let i = 0; i < D.length; i++) D[i] /= h;
+  return { D, K, M, maxAbs: mx / h, P };
+}
+
+function polyFit(y, wt, n, deg) {
+  const A = [], B = [];
+  for (let i = 0; i <= deg; i++) { A.push(new Float64Array(deg + 1)); B.push(0); }
+  let cnt = 0;
+  for (let k = 0; k < n; k++) {
+    if (!wt[k]) continue; cnt++;
+    const x = k / (n - 1) * 2 - 1; const pw = [1]; for (let i = 1; i <= 2 * deg; i++) pw.push(pw[i - 1] * x);
+    for (let i = 0; i <= deg; i++) { for (let j = 0; j <= deg; j++) A[i][j] += pw[i + j]; B[i] += pw[i] * y[k]; }
+  }
+  if (cnt < deg + 2) { if (deg <= 1 || cnt < 3) return null; return polyFit(y, wt, n, 1); }
+  // khử Gauss
+  const N = deg + 1;
+  for (let i = 0; i < N; i++) {
+    let p = i; for (let r = i + 1; r < N; r++) if (Math.abs(A[r][i]) > Math.abs(A[p][i])) p = r;
+    [A[i], A[p]] = [A[p], A[i]]; [B[i], B[p]] = [B[p], B[i]];
+    if (Math.abs(A[i][i]) < 1e-12) return null;
+    for (let r = i + 1; r < N; r++) { const f = A[r][i] / A[i][i]; for (let c = i; c < N; c++) A[r][c] -= f * A[i][c]; B[r] -= f * B[i]; }
+  }
+  const c = new Float64Array(N);
+  for (let i = N - 1; i >= 0; i--) { let s = B[i]; for (let j = i + 1; j < N; j++) s -= A[i][j] * c[j]; c[i] = s / A[i][i]; }
+  return k => { const x = k / (n - 1) * 2 - 1; let v = 0, p = 1; for (let i = 0; i < N; i++) { v += c[i] * p; p *= x; } return v; };
+}
+
+function fieldAt(F, u, v) {
+  const { D, K, M } = F;
+  const fx = clamp(u * K - 0.5, 0, K - 1), fy = clamp(v * M - 0.5, 0, M - 1);
+  const i = Math.min(K - 2, fx | 0), j = Math.min(Math.max(0, M - 2), fy | 0), a = fx - i, b = M > 1 ? fy - j : 0, j1 = Math.min(M - 1, j + 1);
+  return (D[j * K + i] * (1 - a) + D[j * K + i + 1] * a) * (1 - b) + (D[j1 * K + i] * (1 - a) + D[j1 * K + i + 1] * a) * b;
+}
+
+
+/* Độ thẳng dòng chữ: phương sai hồ sơ chiếu hàng (dòng thẳng -> đỉnh sắc) */
+function straightness(img) {
+  const { w, h } = img, L = toGray(img);
+  const bg = boxBlur(L, w, h, Math.max(6, Math.round(w / 40)));
+  const prof = new Float64Array(h); let tot = 0;
+  for (let y = 0; y < h; y++) { let s = 0; for (let x = 0; x < w; x++) { const i = y * w + x; if (bg[i] > 50 && L[i] < bg[i] * 0.8) s++; } prof[y] = s; tot += s; }
+  if (tot < w * h * 0.004) return 0;
+  const mean = tot / h; let v = 0; for (let y = 0; y < h; y++) v += (prof[y] - mean) * (prof[y] - mean);
+  // chia theo 4 dải dọc để bắt cả cong cục bộ
+  let v2 = 0;
+  for (let b = 0; b < 4; b++) {
+    const x0 = Math.round(b * w / 4), x1 = Math.round((b + 1) * w / 4); let t = 0; const pr = new Float64Array(h);
+    for (let y = 0; y < h; y++) { let s = 0; for (let x = x0; x < x1; x++) { const i = y * w + x; if (bg[i] > 50 && L[i] < bg[i] * 0.8) s++; } pr[y] = s; t += s; }
+    const m = t / h; for (let y = 0; y < h; y++) v2 += (pr[y] - m) * (pr[y] - m);
+  }
+  return (v + v2 * 4) / (tot * tot / h + 1);
+}
+
+
+/* Độ lệch dòng giữa nửa trái và nửa phải (đơn vị điểm ảnh); P = khoảng cách dòng ước lượng */
+function lrMisalign(img) {
+  const { w, h } = img, L = toGray(img);
+  const bg = boxBlur(L, w, h, Math.max(6, Math.round(w / 40)));
+  const pl = new Float64Array(h), pr = new Float64Array(h);
+  for (let y = 0; y < h; y++) {
+    let a = 0, b = 0;
+    for (let x = 0; x < w; x++) { const i = y * w + x; if (bg[i] > 50 && L[i] < bg[i] * 0.8) { if (x < w * 0.45) a++; else if (x > w * 0.55) b++; } }
+    pl[y] = a; pr[y] = b;
+  }
+  const sum = a => a.reduce((s, v) => s + v, 0);
+  if (sum(pl) < w * h * 0.002 || sum(pr) < w * h * 0.002) return null;
+  // khoảng cách dòng từ tự tương quan
+  const all = pl.map((v, i) => v + pr[i]), mean = sum(all) / h;
+  const ac = lag => { let s = 0; for (let y = 0; y + lag < h; y++) s += (all[y] - mean) * (all[y + lag] - mean); return s / (h - lag); };
+  let P = 0; for (let lag = 6; lag < Math.min(120, h / 4); lag++) { const c = ac(lag); if (c > 0 && c > ac(lag - 1) && c >= ac(lag + 1)) { P = lag; break; } }
+  if (!P) return null;
+  const lagIn = (y0, y1, R) => {
+    let ml = 0, mr = 0, n = 0; for (let y = y0; y < y1; y++) { ml += pl[y]; mr += pr[y]; n++; } ml /= n; mr /= n;
+    let best = -1e18, bl = 0, e1 = 0, e2 = 0;
+    for (let y = y0; y < y1; y++) { e1 += (pl[y] - ml) ** 2; e2 += (pr[y] - mr) ** 2; }
+    if (e1 < 1e-6 || e2 < 1e-6) return null;
+    for (let lag = -R; lag <= R; lag++) {
+      let c = 0; for (let y = y0; y < y1; y++) { const yy = y + lag; if (yy < 0 || yy >= h) continue; c += (pl[y] - ml) * (pr[yy] - mr); }
+      if (c > best) { best = c; bl = lag; }
+    }
+    return best / Math.sqrt(e1 * e2) > (R > P ? 0.3 : 0.6) ? bl : null;   // chỉ tính đoạn hai bên tương quan rõ
+  };
+  const whole = lagIn(0, h, Math.round(P * 1.5));
+  // theo từng đoạn ~4 dòng: độ lệch lớn nhất giữa cột trái và cột phải
+  let worst = 0; const band = Math.max(4 * P, 30);
+  for (let y0 = 0; y0 + band <= h; y0 += Math.round(band / 2)) {
+    const l = lagIn(y0, y0 + band, Math.round(P * 0.6)); if (l !== null) worst = Math.max(worst, Math.abs(l));
+  }
+  return { lag: whole === null ? 0 : whole, worst, P };
+}
+
+
+/* Nắn lề theo khối chữ: tìm lề trái/phải của các dòng chữ, khớp đường thẳng (bỏ dòng thụt đầu dòng,
+   dòng cuối đoạn, tiêu đề căn giữa), rồi ánh xạ ngang để hai lề thành thẳng đứng. */
+function marginFit(img) {
+  const { w, h } = img, L = toGray(img);
+  const bg = boxBlur(L, w, h, Math.max(6, Math.round(w / 40)));
+  const ink = new Uint8Array(w * h); const rowc = new Float32Array(h);
+  const xb = Math.round(w * 0.025);   // bỏ dải sát mép (viền tối mép giấy)
+  for (let y = 0; y < h; y++) for (let x = xb; x < w - xb; x++) { const i = y * w + x; if (bg[i] > 60 && L[i] < bg[i] * 0.75) { ink[i] = 1; rowc[y]++; } }
+  const lines = []; let y0 = -1;
+  for (let y = 0; y <= h; y++) {
+    const on = y < h && rowc[y] > w * 0.01;
+    if (on && y0 < 0) y0 = y;
+    if (!on && y0 >= 0) {
+      if (y - y0 >= 3) {
+        const cols = new Float32Array(w);
+        for (let yy = y0; yy < y; yy++) for (let x = 0; x < w; x++) cols[x] += ink[yy * w + x];
+        let tot = 0; for (let x = 0; x < w; x++) tot += cols[x];
+        let c = 0, xl = 0, xr = w - 1;
+        for (let x = 0; x < w; x++) { c += cols[x]; if (c >= tot * 0.005) { xl = x; break; } }
+        c = 0; for (let x = w - 1; x >= 0; x--) { c += cols[x]; if (c >= tot * 0.005) { xr = x; break; } }
+        if (xr - xl > w * 0.3) lines.push({ y: (y0 + y) / 2, xl, xr });
+      }
+      y0 = -1;
+    }
+  }
+  if (lines.length < 8) return null;
+  const fit = (pts, side) => {        // side=-1: lề trái, 1: lề phải. Đường bao ngoài: nhiều điểm sát nhất, ít điểm lấn ra ngoài
+    const tol = w * 0.01; let best = null;
+    for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) {
+      const dy = pts[j].y - pts[i].y; if (Math.abs(dy) < h * 0.15) continue;
+      const bb = (pts[j].x - pts[i].x) / dy, aa = pts[i].x - bb * pts[i].y; if (Math.abs(bb) > 0.2) continue;
+      let inl = 0, out = 0;
+      for (const p of pts) { const r = (p.x - (aa + bb * p.y)) * (side < 0 ? 1 : -1); if (Math.abs(r) <= tol) inl++; else if (r < -tol) out++; }
+      const sc = inl - 3 * out; if (!best || sc > best.sc) best = { sc, aa, bb };
+    }
+    if (!best) return null;
+    // khớp lại bình phương nhỏ nhất trên các điểm sát đường
+    const use = pts.filter(p => Math.abs(p.x - (best.aa + best.bb * p.y)) <= tol);
+    if (use.length < Math.max(5, pts.length * 0.3)) return null;
+    let sy = 0, sx = 0, syy = 0, sxy = 0, n = use.length; for (const p of use) { sy += p.y; sx += p.x; syy += p.y * p.y; sxy += p.y * p.x; }
+    const den = n * syy - sy * sy; if (Math.abs(den) < 1e-9) return null;
+    const bq = (n * sxy - sy * sx) / den, aq = (sx - bq * sy) / n;
+    let err = 0; for (const p of use) err += Math.abs(p.x - (aq + bq * p.y)); err /= n;
+    return { a: aq, b: bq, n, err };
+  };
+  const Lf = fit(lines.map(l => ({ y: l.y, x: l.xl })), -1), Rf = fit(lines.map(l => ({ y: l.y, x: l.xr })), 1);
+  if (!Lf || !Rf) return null;
+  const span = lines[lines.length - 1].y - lines[0].y; if (span < h * 0.3) return null;
+  return { L: Lf, R: Rf, w, h, y0: lines[0].y, y1: lines[lines.length - 1].y, nLines: lines.length, ink };
+}
+
+/* Chọn lề đích sao cho không nét chữ nào bị đẩy ra ngoài khung; trả về false nếu không được */
+function chooseMarginTarget(mf) {
+  const { w, h, ink } = mf;
+  for (const pd of [0.03, 0.06, 0.1]) { mf.pad = pd; if (tryTarget(mf)) return true; }
+  return false;
+}
+function tryTarget(mf) {
+  const { w, h, ink } = mf;
+  const xlAt = y => (mf.L.a + mf.L.b * y) / w, xrAt = y => (mf.R.a + mf.R.b * y) / w;
+  const ym = (mf.y0 + mf.y1) / 2;
+  let mnL = 1, mxR = 0; for (let y = 0; y < h; y += 4) { mnL = Math.min(mnL, xlAt(y)); mxR = Math.max(mxR, xrAt(y)); }
+  const opts = [[xlAt(ym), xrAt(ym)], [mnL, mxR]];
+  for (const [L0, R0] of opts) {
+    if (R0 - L0 < 0.3) continue;
+    let lost = 0;
+    for (let y = 0; y < h; y++) {
+      const xl = xlAt(y), xr = xrAt(y), k = (xr - xl) / (R0 - L0);
+      const a = xl + (-mf.pad - L0) * k, b = xl + (1 + mf.pad - L0) * k;   // phần nguồn được hiển thị ở hàng này: [a, b]
+      const ia = Math.ceil(clamp(a, 0, 1) * (w - 1)), ib = Math.floor(clamp(b, 0, 1) * (w - 1));
+      for (let x = 0; x < ia; x++) lost += ink[y * w + x];
+      for (let x = ib + 1; x < w; x++) lost += ink[y * w + x];
+    }
+    if (lost <= 3) { mf.L0 = L0; mf.R0 = R0; return true; }
+  }
+  return false;
+}
+
+function applyMargins(grid, mf) {
+  const { w, h } = mf, gx = grid.gx, gy = grid.gy, g2 = new Float32Array(grid.G.length), p = [0, 0];
+  const L0 = mf.L0, R0 = mf.R0, mg = mf.pad || 0;
+  for (let j = 0; j <= gy; j++) {
+    const v = j / gy, yy = v * h;
+    const xl = (mf.L.a + mf.L.b * yy) / w, xr = (mf.R.a + mf.R.b * yy) / w, k = (xr - xl) / (R0 - L0);
+    for (let i = 0; i <= gx; i++) {
+      const u = -mg + (i / gx) * (1 + 2 * mg), us = xl + (u - L0) * k;
+      gridAt(grid, clamp(us, 0, 1), v, p);
+      const o = (j * (gx + 1) + i) * 2;
+      if (us < -0.002 || us > 1.002) { g2[o] = -1e6; g2[o + 1] = -1e6; }   // ngoài khung giấy -> trắng
+      else { g2[o] = p[0]; g2[o + 1] = p[1]; }
+    }
+  }
+  return { G: g2, gx, gy, pad: grid.pad };
+}
+
+
+/* Góc nghiêng còn lại của dòng chữ (độ), đo bằng phương sai hồ sơ chiếu theo từng góc */
+function residualSkew(img) {
+  const { w, h } = img, L = toGray(img);
+  const bg = boxBlur(L, w, h, Math.max(6, Math.round(w / 40)));
+  const pts = [];
+  for (let y = 0; y < h; y++) for (let x = Math.round(w * 0.03); x < w * 0.97; x++) { const i = y * w + x; if (bg[i] > 60 && L[i] < bg[i] * 0.75) pts.push(x - w / 2, y); }
+  if (pts.length < 2000) return 0;
+  const score = a => {
+    const t = Math.tan(a * Math.PI / 180), pr = new Float64Array(h + w + 2), off = (w >> 1) + 1;
+    for (let i = 0; i < pts.length; i += 2) { const yy = Math.round(pts[i + 1] - pts[i] * t) + off; if (yy >= 0 && yy < pr.length) pr[yy]++; }
+    let v = 0; for (let i = 0; i < pr.length; i++) v += pr[i] * pr[i]; return v;
+  };
+  let best = 0, bs = score(0);
+  for (let a = -4; a <= 4.001; a += 0.25) { const v = score(a); if (v > bs) { bs = v; best = a; } }
+  let fine = best;
+  for (let a = best - 0.25; a <= best + 0.25; a += 0.05) { const v = score(a); if (v > bs) { bs = v; fine = a; } }
+  return fine;
+}
+function applyShear(grid, deg, W, H) {
+  const t = Math.tan(deg * Math.PI / 180) * W / H, gx = grid.gx, gy = grid.gy, g2 = new Float32Array(grid.G.length), p = [0, 0];
+  for (let j = 0; j <= gy; j++) for (let i = 0; i <= gx; i++) {
+    const u = i / gx, v = j / gy + t * (u - 0.5), o = (j * (gx + 1) + i) * 2;
+    if (v < -0.01 || v > 1.01) { g2[o] = -1e6; g2[o + 1] = -1e6; continue; }
+    gridAt(grid, u, clamp(v, 0, 1), p); g2[o] = p[0]; g2[o + 1] = p[1];
+  }
+  return { G: g2, gx, gy, pad: grid.pad };
+}
+
+
+/* Nắn theo từng đoạn: mỗi đoạn ~5 dòng tìm góc nghiêng riêng để nhãn trái và số phải cùng hàng
+   (bắc qua khoảng trống giữa hai cột, nơi dải chữ bị đứt). Góc giới hạn để không nhảy dòng. */
+function bandShearField(img) {
+  const { w, h } = img, L = toGray(img);
+  const bg = boxBlur(L, w, h, Math.max(6, Math.round(w / 40)));
+  const ys = [], xs = [];
+  for (let y = 0; y < h; y++) for (let x = Math.round(w * 0.03); x < w * 0.97; x++) { const i = y * w + x; if (bg[i] > 60 && L[i] < bg[i] * 0.75) { ys.push(y); xs.push(x - w / 2); } }
+  if (ys.length < 3000) return null;
+  // khoảng cách dòng
+  const prof = new Float64Array(h); for (const y of ys) prof[y]++;
+  let mean = ys.length / h; const ac = lag => { let s = 0; for (let y = 0; y + lag < h; y++) s += (prof[y] - mean) * (prof[y + lag] - mean); return s; };
+  let P = 0; for (let lag = 6; lag < Math.min(120, h / 4); lag++) { const c = ac(lag); if (c > 0 && c > ac(lag - 1) && c >= ac(lag + 1)) { P = lag; break; } }
+  if (!P) return null;
+  const tmax = (0.4 * P) / (w * 0.45);                      // dịch tối đa 0.4 dòng ở mép
+  const band = Math.max(5 * P, 40), M = Math.max(2, Math.round(h / band));
+  const T = new Float32Array(M), Wt = new Float32Array(M);
+  // gom điểm theo dải (có chồng lấn)
+  for (let m = 0; m < M; m++) {
+    const y0 = (m - 0.25) * h / M, y1 = (m + 1.25) * h / M;
+    const idx = []; for (let i = 0; i < ys.length; i++) if (ys[i] >= y0 && ys[i] < y1) idx.push(i);
+    if (idx.length < 400) continue;
+    let left = 0, right = 0; for (const i of idx) { if (xs[i] < -w * 0.1) left++; else if (xs[i] > w * 0.1) right++; }
+    if (left < 100 || right < 100) continue;
+    let best = -1, bt = 0;
+    const off = Math.ceil(w) + 2, len = Math.ceil(y1 - y0) + 2 * off;
+    for (let k = -20; k <= 20; k++) {
+      const t = tmax * k / 20, pr = new Float64Array(len);
+      for (const i of idx) { const yy = Math.round(ys[i] - y0 - xs[i] * t) + off; if (yy >= 0 && yy < len) pr[yy]++; }
+      let v = 0; for (let q = 0; q < len; q++) v += pr[q] * pr[q];
+      if (v > best) { best = v; bt = t; }
+    }
+    T[m] = bt; Wt[m] = 1;
+  }
+  let nv = 0; for (let m = 0; m < M; m++) nv += Wt[m]; if (nv < 2) return null;
+  // nội suy dải thiếu, làm mượt
+  for (let m = 0; m < M; m++) if (!Wt[m]) { let a = -1, b = -1; for (let j = m - 1; j >= 0; j--) if (Wt[j]) { a = j; break; } for (let j = m + 1; j < M; j++) if (Wt[j]) { b = j; break; } T[m] = a >= 0 && b >= 0 ? T[a] + (T[b] - T[a]) * (m - a) / (b - a) : a >= 0 ? T[a] : T[b]; }
+  const Ts = T.slice(); for (let m = 0; m < M; m++) { let s = 0, c = 0; for (let j = m - 1; j <= m + 1; j++) if (j >= 0 && j < M) { s += T[j]; c++; } Ts[m] = s / c; }
+  const K = 16, D = new Float32Array(K * M); let mx = 0;
+  for (let m = 0; m < M; m++) for (let k = 0; k < K; k++) { const dx = ((k + 0.5) / K - 0.5) * w; D[m * K + k] = Ts[m] * dx / h; mx = Math.max(mx, Math.abs(D[m * K + k])); }
+  if (mx * h < 1) return null;
+  return { D, K, M, maxAbs: mx, P };
+}
+
+function applyField(grid, field) {
+  const gx = grid.gx, gy = grid.gy, g2 = new Float32Array(grid.G.length), p = [0, 0], q2 = [0, 0], pad = field.maxAbs;
+  for (let j = 0; j <= gy; j++) for (let i = 0; i <= gx; i++) {
+    const u = i / gx, v = (j / gy) * (1 + 2 * pad) - pad;
+    const vv = v + fieldAt(field, u, clamp(v, 0, 1));
+    const o = (j * (gx + 1) + i) * 2;
+    if (vv < 0 || vv > 1) {
+      const vb = clamp(vv, 0, 1); gridAt(grid, u, vb, p); gridAt(grid, u, vb === 0 ? 0.02 : 0.98, q2);
+      const t = (vv - vb) / 0.02 * (vb === 0 ? -1 : 1);
+      g2[o] = p[0] + (p[0] - q2[0]) * t; g2[o + 1] = p[1] + (p[1] - q2[1]) * t;
+    } else { gridAt(grid, u, vv, p); g2[o] = p[0]; g2[o + 1] = p[1]; }
+  }
+  return { G: g2, gx, gy, pad };
+}
+
+
+/* Mặt nạ giấy chi tiết (độ phân giải vừa): biên sắc nét, không lấp khe lõm thông ra ngoài
+   (khe góc giấy cong lộ mặt bàn). Lõi trong của tờ giấy luôn được giữ để không mất chữ. */
+function finePaperMask(mid, det, sw, sh) {
+  if (!mid || !det.mask) return null;
+  const { w, h, data } = mid, n = w * h, k = w / sw;
+  const base = det.paint || det.mask;
+  const core = morph(base, sw, sh, (det.r || 3) + 2, false);     // lõi an toàn
+  const near = morph(base, sw, sh, 2, true);
+  const T = det.T * 0.85;
+  let m = new Uint8Array(n);
+  for (let y = 0; y < h; y++) {
+    const sy = Math.min(sh - 1, (y / k) | 0);
+    for (let x = 0; x < w; x++) {
+      const sp = sy * sw + Math.min(sw - 1, (x / k) | 0), i = y * w + x;
+      if (!near[sp]) continue;
+      if (core[sp]) { m[i] = 1; continue; }
+      const j = i * 4, r = data[j], g = data[j + 1], b = data[j + 2];
+      const mx = Math.max(r, g, b), mn = Math.min(r, g, b), gr = 0.299 * r + 0.587 * g + 0.114 * b;
+      if (gr - 1.3 * (mx - mn) > T) m[i] = 1;
+    }
+  }
+  m = morph(morph(m, w, h, 1, false), w, h, 1, true);   // bỏ nhiễu lấm tấm
+  // lấp khe hẹp cỡ nét chữ sát mép (chữ chạm mép giấy), khe rộng (mặt bàn) vẫn giữ
+  const rc = Math.max(3, Math.round(Math.max(w, h) / 350));
+  m = morph(morph(m, w, h, rc, true), w, h, rc, false);
+  m = fillHoles(largestComponent(m, w, h).mask, w, h);   // lấp lỗ kín (chữ), không lấp khe hở ra ngoài
+  return { m, w, h, k: mid.scale };
+}
+
+
+/* Cắt sát mép giấy trên ảnh đã nắn: đo mép giấy theo từng hàng/cột trong dải ngoài cùng,
+   lấy đường biên trơn (phân vị phía ngoài, bỏ qua chữ cái chạm mép), tô trắng phần ngoài (mặt bàn, góc cong). */
+function trimToPaper(img, T) {
+  const { w, h, data } = img;
+  const paper = new Uint8Array(w * h);
+  for (let i = 0, j = 0; i < w * h; i++, j += 4) {
+    const r = data[j], g = data[j + 1], b = data[j + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    paper[i] = data[j + 3] !== 0 && (0.299 * r + 0.587 * g + 0.114 * b - 1.3 * (mx - mn)) > T ? 1 : 0;
+  }
+  const run = Math.max(6, Math.round(Math.max(w, h) / 150));
+  const side = (len, cross, at, maxDepth) => {        // trả về độ sâu mép giấy cho mỗi vị trí dọc cạnh
+    const d = new Float32Array(len);
+    for (let i = 0; i < len; i++) {
+      let c = 0, found = maxDepth;
+      for (let t = 0; t < maxDepth; t++) { if (at(i, t)) { if (++c >= run) { found = t - run + 1; break; } } else c = 0; }
+      d[i] = found;
+    }
+    // đường biên trơn: phân vị 25% (phía ngoài) trong cửa sổ trượt
+    const win = Math.max(8, Math.round(len * 0.03)), out = new Float32Array(len), buf = [];
+    for (let i = 0; i < len; i++) {
+      buf.length = 0; for (let k = Math.max(0, i - win); k <= Math.min(len - 1, i + win); k++) buf.push(d[k]);
+      buf.sort((a, b) => a - b); out[i] = buf[Math.floor(buf.length * 0.25)];
+    }
+    return out;
+  };
+  const mdV = Math.round(h * 0.12), mdH = Math.round(w * 0.12);
+  const top = side(w, h, (x, t) => paper[t * w + x], mdV);
+  const bot = side(w, h, (x, t) => paper[(h - 1 - t) * w + x], mdV);
+  const lef = side(h, w, (y, t) => paper[y * w + t], mdH);
+  const rig = side(h, w, (y, t) => paper[y * w + (w - 1 - t)], mdH);
+  // bảo vệ nét chữ: điểm tối nằm sát giấy trắng không bao giờ bị tô
+  const rp = Math.max(4, Math.round(Math.max(w, h) / 450));
+  const nearPaper = morph(paper, w, h, rp, true);
+  const white = i => { if (data[i * 4 + 3] !== 0 && nearPaper[i]) return; data[i * 4] = data[i * 4 + 1] = data[i * 4 + 2] = 255; };
+  for (let x = 0; x < w; x++) {
+    if (top[x] < mdV) for (let y = 0; y < top[x]; y++) white(y * w + x);
+    if (bot[x] < mdV) for (let y = 0; y < bot[x]; y++) white((h - 1 - y) * w + x);
+  }
+  for (let y = 0; y < h; y++) {
+    if (lef[y] < mdH) for (let x = 0; x < lef[y]; x++) white(y * w + x);
+    if (rig[y] < mdH) for (let x = 0; x < rig[y]; x++) white(y * w + (w - 1 - x));
+  }
+}
+
+/* ===== QUY TRÌNH CHÍNH ===== */
+function processDoc(src, opts) {
+  opts = opts || {};
+  const t0 = Date.now();
+  const small = downsample(src, 700);
+  const sw = small.w, sh = small.h, k = 1 / small.scale;
+  let det = null, qs, edges = null, mid = null;
+  if (opts.quad) {
+    qs = opts.quad.map(p => [p[0] * (sw - 1), p[1] * (sh - 1)]);
+  } else {
+    mid = downsample(src, 1400);
+    det = detectDoc(small, true, mid);
+    qs = det.quad;
+    if (opts.dewarp !== false && det.mask) edges = edgeOffsets(qs, det.mask, det.ink, sw, sh, 24);
+  }
+  // sang tọa độ ảnh gốc
+  const qf = qs.map(p => [p[0] * k, p[1] * k]);
+  let edgesF = null;
+  if (edges) edgesF = edges.map(E => ({ A: [E.A[0] * k, E.A[1] * k], B: [E.B[0] * k, E.B[1] * k], nx: E.nx, ny: E.ny, off: E.off.map(o => o * k), M: E.M }));
+  const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  let W = Math.max(d(qf[0], qf[1]), d(qf[3], qf[2])), H = Math.max(d(qf[0], qf[3]), d(qf[1], qf[2]));
+  const cap = opts.maxSide || 2600, s = Math.min(1.25, cap / Math.max(W, H));
+  W = Math.max(16, Math.round(W * s)); H = Math.max(16, Math.round(H * s));
+  // Thử nhiều cách nắn, chọn cách cho dòng chữ thẳng nhất (không bao giờ tệ hơn nắn phối cảnh)
+  const gA = makeGrid(buildMapper(qf, null), 48, 64);
+  let grid = gA, chosen = 'persp', pad = 0;
+  if (opts.dewarp !== false) {
+    const aw = Math.min(640, W), ah = Math.max(16, Math.round(H * aw / W));
+    const cands = [{ n: 'persp', g: gA }];
+    if (edgesF) cands.push({ n: 'edges', g: makeGrid(buildMapper(qf, edgesF), 48, 64) });
+    const base = cands.slice();
+    for (const c of base) {
+      const low = renderGrid(src, c.g, aw, ah, true);
+      c.s = straightness(low);
+      const F = textLineField(low);
+      if (F) { const g2 = applyField(c.g, F); const ah2 = Math.round(ah * (1 + 2 * F.maxAbs)); const c2 = { n: c.n + '+lines', g: g2 }; c2.s = straightness(renderGrid(src, g2, aw, ah2, true)); cands.push(c2);
+        // thêm nắn theo đoạn trên kết quả nắn dòng
+        const lowL = renderGrid(src, g2, aw, ah2, true), FS2 = bandShearField(lowL);
+        if (FS2) { const g4 = applyField(g2, FS2); g4.pad = (g2.pad || 0) + FS2.maxAbs; const c4 = { n: c2.n + '+bands', g: g4 }; c4.s = straightness(renderGrid(src, g4, aw, Math.round(ah * (1 + 2 * g4.pad)), true)); cands.push(c4); } }
+      const FS = bandShearField(low);
+      if (FS) { const g3 = applyField(c.g, FS); const ah3 = Math.round(ah * (1 + 2 * FS.maxAbs)); const c3 = { n: c.n + '+bands', g: g3 }; c3.s = straightness(renderGrid(src, g3, aw, ah3, true)); cands.push(c3); }
+    }
+    // loại cách nắn làm lệch hàng giữa cột trái và cột phải (nhãn lệch số)
+    for (const c of cands) {
+      if (c.n === 'persp') { c.ok = true; continue; }
+      const lowc = renderGrid(src, c.g, aw, Math.round(ah * (1 + 2 * (c.g.pad || 0))), true);
+      const a = lrMisalign(lowc); c.al = a;
+      c.ok = !a || Math.abs(a.lag) <= Math.max(1.5, a.P * 0.18);
+      if (typeof DEBUG_SEAM !== 'undefined') console.log('  align', c.n, a && a.lag, a && a.worst, a && a.P, c.ok);
+    }
+    { const a0 = lrMisalign(renderGrid(src, gA, aw, ah, true)); cands[0].al = a0;
+      if (typeof DEBUG_SEAM !== 'undefined') console.log('  align persp', a0 && a0.lag, a0 && a0.worst, a0 && a0.P); }
+    let best = cands[0];
+    for (const c of cands) if (c.ok && c.s > best.s * 1.04) best = c;   // phải tốt hơn rõ rệt mới chọn
+    grid = best.g; chosen = best.n; pad = best.g.pad || 0;
+    H = Math.round(H * (1 + 2 * pad));
+    // chỉnh nghiêng tổng thể còn sót (dòng chữ phải nằm ngang tuyệt đối)
+    { const ahc = Math.round(ah * (1 + 2 * pad)), lowk = renderGrid(src, grid, aw, ahc, true), sk = residualSkew(lowk);
+      if (typeof DEBUG_SEAM !== 'undefined') console.log('skew', sk.toFixed(2));
+      if (Math.abs(sk) >= 0.2) { grid = applyShear(grid, sk, aw, ahc); chosen += '+deskew'; } }
+    // dựng thẳng lề khối chữ (nhất là khi trang tràn khỏi khung ảnh, không có mép giấy để nắn)
+    { const lowb = renderGrid(src, grid, aw, Math.round(ah * (1 + 2 * pad)), true), mf = marginFit(lowb);
+      if (mf) {
+        const tiltL = Math.abs(mf.L.b), tiltR = Math.abs(mf.R.b);
+        if (typeof DEBUG_SEAM !== 'undefined') console.log('margins', mf.L.b.toFixed(4), mf.R.b.toFixed(4), mf.L.n, mf.R.n, mf.L.err.toFixed(1), mf.R.err.toFixed(1));
+        const nl = mf.nLines;
+        if ((tiltL > 0.004 || tiltR > 0.004) && tiltL < 0.12 && tiltR < 0.12 && mf.L.n >= Math.max(8, nl * 0.25) && mf.R.n >= Math.max(8, nl * 0.25) && mf.L.err < aw * 0.006 && mf.R.err < aw * 0.006) {
+          if (chooseMarginTarget(mf)) { grid = applyMargins(grid, mf); chosen += '+margins'; W = Math.round(W * (1 + 2 * mf.pad)); }
+        }
+      } }
+    if (typeof DEBUG_SEAM !== 'undefined') console.log('cands', cands.map(c => c.n + ':' + c.s.toFixed(2)).join(' '));
+  }
+  let pm = null;
+  if (det && det.mask) pm = { m: det.paint || det.mask, w: sw, h: sh, k: small.scale };
+  const warped = renderGrid(src, grid, W, H, true, pm);
+  if (det && det.T) trimToPaper(warped, det.T * 0.85);
+  const out = enhance(warped, opts.mode || 'color');
+  const quadN = qs.map(p => [p[0] / (sw - 1), p[1] / (sh - 1)]);
+  return { img: out, quad: quadN, flaps: det ? det.flaps : 0, cuts: det ? det.cuts : 0, conf: det ? det.conf : 1, warp: chosen, ms: Date.now() - t0 };
+}
+
+function detectLive(small) {
+  const det = detectDoc(small, false);
+  return { quad: det.quad.map(p => [p[0] / (small.w - 1), p[1] / (small.h - 1)]), conf: det.conf };
+}
+
+if (typeof module !== 'undefined') module.exports = { cleanSmudges, processDoc, detectLive, downsample, detectDoc };
+</script>
+<script>
+'use strict';
+/* ================= WORKER ================= */
+const workerSrc = document.getElementById('coreSrc').textContent + `
+self.onmessage = e => {
+  const m = e.data;
+  try {
+    if (m.type === 'detect') {
+      const r = detectLive({ w: m.w, h: m.h, data: new Uint8ClampedArray(m.buf) });
+      self.postMessage({ id: m.id, type: 'detect', quad: r.quad, conf: r.conf });
+    } else if (m.type === 'process') {
+      const r = processDoc({ w: m.w, h: m.h, data: new Uint8ClampedArray(m.buf) }, m.opts);
+      self.postMessage({ id: m.id, type: 'process', w: r.img.w, h: r.img.h, buf: r.img.data.buffer, quad: r.quad, ms: r.ms }, [r.img.data.buffer]);
+    }
+  } catch (err) { self.postMessage({ id: m.id, type: 'error', msg: String(err && err.stack || err) }); }
+};`;
+const wURL = URL.createObjectURL(new Blob([workerSrc], { type: 'text/javascript' }));
+const liveW = new Worker(wURL);
+const nCores = Math.max(1, Math.min(3, (navigator.hardwareConcurrency || 2) - 1));
+const procWs = []; for (let i = 0; i < nCores; i++) procWs.push({ w: new Worker(wURL), busy: 0 });
+let msgId = 0; const pending = new Map();
+function onWMsg(e) { const p = pending.get(e.data.id); if (!p) return; pending.delete(e.data.id); if (p.slot) p.slot.busy--; e.data.type === 'error' ? p.rej(new Error(e.data.msg)) : p.res(e.data); }
+liveW.onmessage = onWMsg; procWs.forEach(s => s.w.onmessage = onWMsg);
+function runProcess(imgData, opts) {
+  const slot = procWs.reduce((a, b) => b.busy < a.busy ? b : a); slot.busy++;
+  const id = ++msgId;
+  return new Promise((res, rej) => {
+    pending.set(id, { res, rej, slot });
+    slot.w.postMessage({ type: 'process', id, w: imgData.width, h: imgData.height, buf: imgData.data.buffer, opts }, [imgData.data.buffer]);
+  });
+}
+
+/* ================= TIỆN ÍCH ================= */
+const $ = id => document.getElementById(id);
+const isAndroidApp = !!window.AndroidBridge;
+function toast(t, ms) { const e = $('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), ms || 2200); }
+function busy(on, txt) { $('busy').classList.toggle('on', on); if (txt) $('busyTxt').textContent = txt; }
+function show(id) { document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id)); if (id === 'cam') startCam(); else stopLive(); if (id === 'list') renderGrid(); }
+const canvasToBlob = (c, q) => new Promise(r => c.toBlob(r, 'image/jpeg', q || 0.9));
+async function blobToImageData(blob) {
+  let bmp;
+  try { bmp = await createImageBitmap(blob, { imageOrientation: 'from-image' }); }
+  catch (e) { bmp = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(blob); }); }
+  const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+  const x = c.getContext('2d'); x.drawImage(bmp, 0, 0);
+  return x.getImageData(0, 0, c.width, c.height);
+}
+function fitImageData(id, maxSide) {   // giới hạn kích thước ảnh nhập (ảnh 50MP…)
+  const s = Math.min(1, maxSide / Math.max(id.width, id.height)); if (s >= 1) return id;
+  const c = document.createElement('canvas'); c.width = id.width; c.height = id.height; c.getContext('2d').putImageData(id, 0, 0);
+  const d = document.createElement('canvas'); d.width = Math.round(id.width * s); d.height = Math.round(id.height * s);
+  const x = d.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(c, 0, 0, d.width, d.height);
+  return x.getImageData(0, 0, d.width, d.height);
+}
+
+/* ================= DỮ LIỆU TRANG ================= */
+const pages = [];  // {id, src(Blob), w,h, quad(null=tự động), autoQuad, mode, rot, flat, out(Blob), url, status}
+let pageSeq = 0;
+let defaultMode = 'color';
+try { defaultMode = localStorage.getItem('qtl_mode') || 'color'; } catch (e) {}
+
+async function addPage(imgData, srcBlob) {
+  const p = { id: ++pageSeq, src: srcBlob, w: imgData.width, h: imgData.height, quad: null, autoQuad: null, mode: defaultMode, rot: 0, flat: true, out: null, url: null, status: 'proc', ver: 0 };
+  pages.push(p); refreshGallery();
+  processPage(p, imgData);
+  return p;
+}
+
+async function processPage(p, imgData) {
+  const ver = ++p.ver; p.status = 'proc'; refreshPage(p);
+  try {
+    if (!imgData) imgData = fitImageData(await blobToImageData(p.src), 4000);
+    const r = await runProcess(imgData, { quad: p.quad, mode: p.mode, dewarp: p.flat, maxSide: 2600 });
+    if (ver !== p.ver || !pages.includes(p)) return;
+    if (!p.quad) p.autoQuad = r.quad;
+    let c = document.createElement('canvas'); c.width = r.w; c.height = r.h;
+    c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(r.buf), r.w, r.h), 0, 0);
+    if (p.rot) {
+      const d = document.createElement('canvas'), odd = p.rot % 180 !== 0;
+      d.width = odd ? r.h : r.w; d.height = odd ? r.w : r.h;
+      const x = d.getContext('2d'); x.translate(d.width / 2, d.height / 2); x.rotate(p.rot * Math.PI / 180); x.drawImage(c, -r.w / 2, -r.h / 2); c = d;
+    }
+    p.out = await canvasToBlob(c, 0.88); p.outW = c.width; p.outH = c.height;
+    if (p.url) URL.revokeObjectURL(p.url);
+    p.url = URL.createObjectURL(p.out); p.status = 'ok';
+  } catch (e) { console.error(e); p.status = 'err'; toast('Lỗi xử lý ảnh: ' + e.message, 4000); }
+  refreshPage(p);
+}
+
+function refreshGallery() {
+  const n = pages.length, gc = $('galCount');
+  $('camSave').style.display = n ? 'flex' : 'none'; $('camSave').textContent = '💾 Lưu PDF (' + n + ')';
+  $('rvSave').textContent = '💾 Lưu PDF (' + n + ' trang)';
+  gc.style.display = n ? 'flex' : 'none'; gc.textContent = n;
+  const last = pages[n - 1];
+  $('galBtn').style.backgroundImage = last && last.url ? `url(${last.url})` : 'none';
+  if ($('list').classList.contains('on')) renderGrid();
+}
+function refreshPage(p) {
+  refreshGallery();
+  if ($('view').classList.contains('on') && pages[viewIdx] === p) renderView();
+}
+
+/* ================= CAMERA ================= */
+const video = $('video'), overlay = $('overlay');
+let stream = null, track = null, liveTimer = null, liveBusy = false, liveQuad = null, dispQuad = null, liveConf = 0;
+let reviewOn = true, reviewMode = false;
+try { reviewOn = localStorage.getItem('qtl_review') !== '0'; } catch (e) {}
+let autoOn = false, stableSince = 0, lastQuadRef = null, lastShot = 0, torchOn = false;
+try { autoOn = localStorage.getItem('qtl_auto') === '1'; } catch (e) {}
+
+async function startCam() {
+  if (stream) { startLive(); return; }
+  $('camMsg').textContent = 'Đang mở camera…';
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    $('camMsg').innerHTML = 'Trình duyệt không mở được camera trực tiếp (cần HTTPS).<br>Bấm nút chụp để dùng camera của máy, hoặc "Chọn ảnh".';
+    return;
+  }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } } });
+  } catch (e) {
+    try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }); }
+    catch (e2) { $('camMsg').innerHTML = 'Không mở được camera (' + (e2.name || e2) + ').<br>Bấm nút chụp để dùng camera của máy, hoặc "Chọn ảnh".'; stream = null; return; }
+  }
+  track = stream.getVideoTracks()[0];
+  try { await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) {}
+  video.srcObject = stream;
+  try { await video.play(); } catch (e) {}
+  $('camMsg').textContent = '';
+  const caps = track.getCapabilities ? track.getCapabilities() : {};
+  $('torchBtn').style.visibility = caps.torch ? 'visible' : 'hidden';
+  startLive();
+}
+function stopLive() { clearInterval(liveTimer); liveTimer = null; }
+function startLive() { if (!liveTimer) liveTimer = setInterval(liveTick, 110); requestAnimationFrame(drawOverlay); }
+
+const liveCanvas = document.createElement('canvas'), liveCtx = liveCanvas.getContext('2d', { willReadFrequently: true });
+function liveTick() {
+  if (liveBusy || !video.videoWidth || !$('cam').classList.contains('on')) return;
+  const s = 360 / Math.max(video.videoWidth, video.videoHeight);
+  liveCanvas.width = Math.round(video.videoWidth * s); liveCanvas.height = Math.round(video.videoHeight * s);
+  liveCtx.drawImage(video, 0, 0, liveCanvas.width, liveCanvas.height);
+  const d = liveCtx.getImageData(0, 0, liveCanvas.width, liveCanvas.height);
+  liveBusy = true; const id = ++msgId;
+  pending.set(id, { res: r => { liveBusy = false; onLive(r); }, rej: () => { liveBusy = false; } });
+  liveW.postMessage({ type: 'detect', id, w: d.width, h: d.height, buf: d.data.buffer }, [d.data.buffer]);
+}
+function onLive(r) {
+  liveConf = r.conf;
+  liveQuad = r.conf > 0.55 ? r.quad : null;
+  $('hint').textContent = liveQuad ? (autoOn ? 'Giữ yên máy…' : 'Đã thấy tài liệu — bấm chụp') : 'Đưa tờ giấy vào khung hình';
+  if (autoOn && liveQuad) {
+    const moved = lastQuadRef ? Math.max(...liveQuad.map((p, i) => Math.hypot(p[0] - lastQuadRef[i][0], p[1] - lastQuadRef[i][1]))) : 1;
+    if (moved > 0.02) { stableSince = performance.now(); lastQuadRef = liveQuad; }
+    else if (performance.now() - stableSince > 1100 && performance.now() - lastShot > 2500) capture();
+  } else { stableSince = performance.now(); lastQuadRef = liveQuad; }
+}
+function videoToScreen(p) {   // tọa độ chuẩn hóa video -> điểm trên overlay (object-fit: cover)
+  const W = overlay.clientWidth, H = overlay.clientHeight, vw = video.videoWidth, vh = video.videoHeight;
+  const s = Math.max(W / vw, H / vh), ox = (W - vw * s) / 2, oy = (H - vh * s) / 2;
+  return [ox + p[0] * vw * s, oy + p[1] * vh * s];
+}
+function drawOverlay() {
+  if (!$('cam').classList.contains('on')) return;
+  const W = overlay.clientWidth, H = overlay.clientHeight, dpr = devicePixelRatio || 1;
+  if (overlay.width !== Math.round(W * dpr)) { overlay.width = Math.round(W * dpr); overlay.height = Math.round(H * dpr); }
+  const x = overlay.getContext('2d'); x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, W, H);
+  if (liveQuad && video.videoWidth) {
+    if (!dispQuad) dispQuad = liveQuad.map(p => p.slice());
+    for (let i = 0; i < 4; i++) for (let k = 0; k < 2; k++) dispQuad[i][k] += (liveQuad[i][k] - dispQuad[i][k]) * 0.35;
+    const pts = dispQuad.map(videoToScreen);
+    x.beginPath(); pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.closePath();
+    x.fillStyle = 'rgba(30,136,229,0.18)'; x.fill();
+    x.lineWidth = 3; x.strokeStyle = '#42a5f5'; x.stroke();
+    x.fillStyle = '#fff'; pts.forEach(p => { x.beginPath(); x.arc(p[0], p[1], 6, 0, 7); x.fill(); });
+  } else dispQuad = null;
+  requestAnimationFrame(drawOverlay);
+}
+
+async function grabFrame() {
+  // Ưu tiên chụp ảnh độ phân giải cao (ImageCapture), nếu không có thì lấy khung video
+  if (track && window.ImageCapture && track.getCapabilities) {
+    try {
+      const ic = new ImageCapture(track);
+      const blob = await Promise.race([ic.takePhoto(), new Promise((_, r) => setTimeout(() => r('timeout'), 2500))]);
+      const id = fitImageData(await blobToImageData(blob), 4000);
+      return { id, blob };
+    } catch (e) { /* dùng khung video */ }
+  }
+  const c = document.createElement('canvas'); c.width = video.videoWidth; c.height = video.videoHeight;
+  const x = c.getContext('2d'); x.drawImage(video, 0, 0);
+  const id = x.getImageData(0, 0, c.width, c.height);
+  const blob = await canvasToBlob(c, 0.92);
+  return { id, blob };
+}
+
+let capturing = false;
+async function capture() {
+  if (!stream) { $('camIn').click(); return; }
+  if (capturing || !video.videoWidth) return;
+  capturing = true; lastShot = performance.now(); $('shutter').classList.add('busy');
+  const f = $('flash'); f.style.transition = 'none'; f.style.opacity = 0.7; requestAnimationFrame(() => { f.style.transition = 'opacity .3s'; f.style.opacity = 0; });
+  try { if (navigator.vibrate) navigator.vibrate(30); } catch (e) {}
+  try { const { id, blob } = await grabFrame(); const p = await addPage(id, blob); if (reviewOn) openView(pages.indexOf(p), true); }
+  catch (e) { toast('Không chụp được: ' + e.message); }
+  capturing = false; $('shutter').classList.remove('busy');
+}
+
+async function importFiles(files) {
+  if (!files || !files.length) return;
+  busy(true, 'Đang nạp ' + files.length + ' ảnh…');
+  for (const f of files) {
+    try { const id = fitImageData(await blobToImageData(f), 4000); addPage(id, f); }
+    catch (e) { toast('Không đọc được ảnh ' + f.name); }
+  }
+  busy(false);
+  if (!stream || files.length > 1) show('list');
+}
+
+$('shutter').onclick = capture;
+$('importBtn').onclick = () => $('fileIn').click();
+$('fileIn').onchange = e => { importFiles([...e.target.files]); e.target.value = ''; };
+$('camIn').onchange = async e => { const f = [...e.target.files]; e.target.value = ''; if (f.length === 1 && reviewOn) { try { const id = fitImageData(await blobToImageData(f[0]), 4000); const p = await addPage(id, f[0]); openView(pages.indexOf(p), true); } catch (er) { toast('Không đọc được ảnh'); } } else importFiles(f); };
+$('galBtn').onclick = () => { if (pages.length) show('list'); else toast('Chưa có trang nào'); };
+function setAutoBtn() { const b = $('autoBtn'); b.textContent = 'Tự chụp: ' + (autoOn ? 'Bật' : 'Tắt'); b.classList.toggle('act', autoOn); }
+setAutoBtn();
+function setReviewBtn() { const b = $('reviewBtn'); b.textContent = 'Xem lại: ' + (reviewOn ? 'Bật' : 'Tắt'); b.classList.toggle('act', reviewOn); }
+setReviewBtn();
+$('reviewBtn').onclick = () => { reviewOn = !reviewOn; setReviewBtn(); try { localStorage.setItem('qtl_review', reviewOn ? '1' : '0'); } catch (e) {} toast(reviewOn ? 'Chụp xong sẽ hiện ảnh đã cắt để kiểm tra' : 'Chụp liên tục, xem lại sau trong danh sách'); };
+$('autoBtn').onclick = () => { autoOn = !autoOn; setAutoBtn(); try { localStorage.setItem('qtl_auto', autoOn ? '1' : '0'); } catch (e) {} };
+$('torchBtn').onclick = async () => {
+  try { torchOn = !torchOn; await track.applyConstraints({ advanced: [{ torch: torchOn }] }); $('torchBtn').classList.toggle('act', torchOn); }
+  catch (e) { toast('Máy không hỗ trợ bật đèn'); }
+};
+
+/* ================= DANH SÁCH ================= */
+function renderGrid() {
+  const g = $('grid'); g.innerHTML = '';
+  $('listTitle').textContent = 'Tài liệu (' + pages.length + ' trang)';
+  if (!pages.length) { g.innerHTML = '<div class="empty">Chưa có trang nào.<br>Bấm "‹ Chụp" để chụp tài liệu.</div>'; return; }
+  pages.forEach((p, i) => {
+    const d = document.createElement('div'); d.className = 'card';
+    if (p.url) { const im = document.createElement('img'); im.src = p.url; d.appendChild(im); }
+    if (p.status === 'proc') { const s = document.createElement('div'); s.className = 'spin'; d.appendChild(s); }
+    if (p.status === 'err') d.insertAdjacentHTML('beforeend', '<div style="color:#e53935">Lỗi</div>');
+    d.insertAdjacentHTML('beforeend', `<div class="num">${i + 1}</div>`);
+    d.onclick = () => openView(i);
+    g.appendChild(d);
+  });
+}
+$('backCam').onclick = () => show('cam');
+$('clearAll').onclick = () => {
+  if (!pages.length) return;
+  if (!confirm('Xóa toàn bộ ' + pages.length + ' trang?')) return;
+  pages.forEach(p => p.url && URL.revokeObjectURL(p.url)); pages.length = 0; refreshGallery(); renderGrid();
+};
+
+/* ================= XEM TRANG ================= */
+let viewIdx = 0;
+function openView(i, review) { viewIdx = i; reviewMode = !!review; show('view'); renderView(); }
+function renderView() {
+  const p = pages[viewIdx]; if (!p) { show(pages.length ? 'list' : 'cam'); return; }
+  $('viewTitle').textContent = reviewMode ? (p.status === 'proc' ? 'Đang cắt & làm phẳng…' : 'Kiểm tra ảnh – trang ' + (viewIdx + 1)) : 'Trang ' + (viewIdx + 1) + '/' + pages.length;
+  $('reviewBar').classList.toggle('on', reviewMode);
+  $('viewPrev').style.visibility = $('viewNext').style.visibility = reviewMode ? 'hidden' : 'visible';
+  $('viewBack').textContent = reviewMode ? '‹ Camera' : '‹ Trang';
+  if (p.url) $('viewImg').src = p.url;
+  else { if (!p.srcUrl) p.srcUrl = URL.createObjectURL(p.src); $('viewImg').src = p.srcUrl; }
+  $('viewImg').style.opacity = p.status === 'proc' ? 0.5 : 1;
+  $('viewSpin').style.display = p.status === 'proc' ? 'block' : 'none';
+  document.querySelectorAll('#modes button').forEach(b => b.classList.toggle('on', b.dataset.m === p.mode));
+  $('tbFlat').classList.toggle('on', p.flat);
+}
+$('viewBack').onclick = () => { if (reviewMode) { reviewMode = false; show('cam'); } else show('list'); };
+$('rvOk').onclick = () => { reviewMode = false; show('cam'); };
+$('rvRetake').onclick = () => { const p = pages[viewIdx]; if (p) { p.ver++; if (p.url) URL.revokeObjectURL(p.url); if (p.srcUrl) URL.revokeObjectURL(p.srcUrl); pages.splice(viewIdx, 1); refreshGallery(); } reviewMode = false; show('cam'); };
+$('viewPrev').onclick = () => { if (viewIdx > 0) { viewIdx--; renderView(); } };
+$('viewNext').onclick = () => { if (viewIdx < pages.length - 1) { viewIdx++; renderView(); } };
+document.querySelectorAll('#modes button').forEach(b => b.onclick = () => {
+  const p = pages[viewIdx]; if (!p || p.mode === b.dataset.m) return;
+  p.mode = defaultMode = b.dataset.m; try { localStorage.setItem('qtl_mode', defaultMode); } catch (e) {}
+  processPage(p); renderView();
+});
+$('tbFlat').onclick = () => { const p = pages[viewIdx]; p.flat = !p.flat; toast(p.flat ? 'Bật làm phẳng / nắn dòng chữ' : 'Tắt làm phẳng (chỉ cắt phối cảnh)'); processPage(p); renderView(); };
+$('tbRot').onclick = () => { const p = pages[viewIdx]; p.rot = (p.rot + 90) % 360; processPage(p); };
+$('tbDel').onclick = () => {
+  const p = pages[viewIdx]; if (!confirm('Xóa trang này?')) return;
+  if (p.url) URL.revokeObjectURL(p.url); pages.splice(viewIdx, 1); refreshGallery();
+  if (!pages.length || reviewMode) { reviewMode = false; show('cam'); return; }
+  viewIdx = Math.min(viewIdx, pages.length - 1); renderView();
+};
+$('tbSave').onclick = () => saveAllPdf(false);
+$('rvSave').onclick = () => saveAllPdf(true);
+$('camSave').onclick = () => saveAllPdf(true);
+$('tbCrop').onclick = () => openCrop(pages[viewIdx]);
+
+/* ================= CẮT GÓC ================= */
+let cropPage = null, cropImg = null, cropQ = null, cropLay = null, dragI = -1;
+async function openCrop(p) {
+  cropPage = p; busy(true, 'Đang mở ảnh…');
+  try {
+    const bmp = await createImageBitmap(p.src, { imageOrientation: 'from-image' }).catch(async () => {
+      const i = new Image(); i.src = URL.createObjectURL(p.src); await i.decode(); return i; });
+    cropImg = bmp;
+  } finally { busy(false); }
+  cropQ = (p.quad || p.autoQuad || [[0, 0], [1, 0], [1, 1], [0, 1]]).map(q => q.slice());
+  show('crop'); layoutCrop(); drawCrop();
+}
+function layoutCrop() {
+  const wrap = $('cropWrap'), W = wrap.clientWidth, H = wrap.clientHeight, pad = 24;
+  const s = Math.min((W - 2 * pad) / cropImg.width, (H - 2 * pad) / cropImg.height);
+  const dw = cropImg.width * s, dh = cropImg.height * s;
+  cropLay = { s, ox: (W - dw) / 2, oy: (H - dh) / 2, dw, dh, W, H };
+  const c = $('cropCanvas'), dpr = devicePixelRatio || 1;
+  c.width = W * dpr; c.height = H * dpr; c.style.width = W + 'px'; c.style.height = H + 'px';
+}
+function qToScr(q) { return [cropLay.ox + q[0] * cropLay.dw, cropLay.oy + q[1] * cropLay.dh]; }
+function drawCrop() {
+  const c = $('cropCanvas'), x = c.getContext('2d'), dpr = devicePixelRatio || 1, L = cropLay;
+  x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, L.W, L.H);
+  x.drawImage(cropImg, L.ox, L.oy, L.dw, L.dh);
+  const pts = cropQ.map(qToScr);
+  x.save(); x.beginPath(); x.rect(0, 0, L.W, L.H); pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.closePath();
+  x.fillStyle = 'rgba(0,0,0,0.5)'; x.fill('evenodd'); x.restore();
+  x.beginPath(); pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.closePath();
+  x.lineWidth = 2.5; x.strokeStyle = '#42a5f5'; x.stroke();
+  pts.forEach((p, i) => { x.beginPath(); x.arc(p[0], p[1], dragI === i ? 16 : 13, 0, 7); x.fillStyle = 'rgba(30,136,229,0.35)'; x.fill(); x.lineWidth = 3; x.strokeStyle = '#fff'; x.stroke(); });
+}
+function cropPt(e) { const r = $('cropWrap').getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+const cw = $('cropWrap');
+cw.addEventListener('pointerdown', e => {
+  const p = cropPt(e); let best = -1, bd = 48;
+  cropQ.forEach((q, i) => { const s = qToScr(q), d = Math.hypot(s[0] - p[0], s[1] - p[1]); if (d < bd) { bd = d; best = i; } });
+  if (best < 0) return;
+  dragI = best; cw.setPointerCapture(e.pointerId); moveDrag(p); e.preventDefault();
+});
+cw.addEventListener('pointermove', e => { if (dragI >= 0) moveDrag(cropPt(e)); });
+const endDrag = () => { dragI = -1; $('loupe').style.display = 'none'; drawCrop(); };
+cw.addEventListener('pointerup', endDrag); cw.addEventListener('pointercancel', endDrag);
+function moveDrag(p) {
+  const L = cropLay;
+  cropQ[dragI] = [Math.min(1, Math.max(0, (p[0] - L.ox) / L.dw)), Math.min(1, Math.max(0, (p[1] - L.oy) / L.dh))];
+  drawCrop();
+  // kính lúp
+  const lp = $('loupe'), lc = $('loupeC').getContext('2d'), q = cropQ[dragI];
+  const ix = q[0] * cropImg.width, iy = q[1] * cropImg.height, r = 40 / L.s * 0.6;
+  lc.fillStyle = '#000'; lc.fillRect(0, 0, 220, 220);
+  lc.drawImage(cropImg, ix - r, iy - r, 2 * r, 2 * r, 0, 0, 220, 220);
+  lc.strokeStyle = '#42a5f5'; lc.lineWidth = 2; lc.beginPath(); lc.moveTo(110, 80); lc.lineTo(110, 140); lc.moveTo(80, 110); lc.lineTo(140, 110); lc.stroke();
+  const s = qToScr(q); lp.style.display = 'block';
+  lp.style.left = Math.max(4, Math.min(L.W - 114, s[0] - 55)) + 'px';
+  lp.style.top = (s[1] > 150 ? s[1] - 150 : s[1] + 40) + 'px';
+}
+window.addEventListener('resize', () => { if ($('crop').classList.contains('on')) { layoutCrop(); drawCrop(); } });
+$('cropCancel').onclick = () => show('view');
+$('cropAuto').onclick = () => { cropQ = (cropPage.autoQuad || [[0, 0], [1, 0], [1, 1], [0, 1]]).map(q => q.slice()); cropPage._toAuto = true; drawCrop(); };
+$('cropFull').onclick = () => { cropQ = [[0, 0], [1, 0], [1, 1], [0, 1]]; cropPage._toAuto = false; drawCrop(); };
+$('cropOk').onclick = () => {
+  const p = cropPage;
+  const same = p.autoQuad && cropQ.every((q, i) => Math.abs(q[0] - p.autoQuad[i][0]) < 1e-4 && Math.abs(q[1] - p.autoQuad[i][1]) < 1e-4);
+  p.quad = same ? null : cropQ.map(q => q.slice());  // giữ tự động nếu không đổi (để còn làm phẳng mép cong)
+  p._toAuto = false; show('view'); processPage(p); renderView();
+};
+
+/* ================= LƯU FILE ================= */
+function fileStamp() { const d = new Date(), z = n => String(n).padStart(2, '0'); return `TaiLieu_${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}`; }
+function blobToB64(b) { return new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(',')[1]); fr.readAsDataURL(b); }); }
+async function saveBlob(blob, name) {
+  if (isAndroidApp) {
+    const res = window.AndroidBridge.saveFile(name, blob.type || 'application/octet-stream', await blobToB64(blob));
+    toast(res && res.indexOf('ERR') !== 0 ? 'Đã lưu: ' + res : 'Lỗi lưu file: ' + res, 3500); return;
+  }
+  // Web: ưu tiên chia sẻ trên iOS (lưu vào Tệp/Ảnh), còn lại tải xuống
+  const file = new File([blob], name, { type: blob.type });
+  if (/iPhone|iPad|iPod/.test(navigator.userAgent) && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: name }); return; } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+  toast('Đã lưu ' + name);
+}
+function waitAll() {
+  return new Promise(res => { const chk = () => pages.some(p => p.status === 'proc') ? setTimeout(chk, 150) : res(); chk(); });
+}
+$('saveJpg').onclick = async () => {
+  if (!pages.length) return toast('Chưa có trang nào');
+  busy(true, 'Đang hoàn tất xử lý…'); await waitAll(); busy(false);
+  const st = fileStamp();
+  for (let i = 0; i < pages.length; i++) if (pages[i].out) { await saveBlob(pages[i].out, `${st}_trang${i + 1}.jpg`); await new Promise(r => setTimeout(r, 350)); }
+};
+/* Lưu TẤT CẢ các trang đã chụp thành 1 file PDF duy nhất, đúng thứ tự chụp */
+async function saveAllPdf(askNew) {
+  if (!pages.length) return toast('Chưa có trang nào');
+  busy(true, 'Đang hoàn tất xử lý ' + pages.length + ' trang…'); await waitAll();
+  busy(true, 'Đang tạo PDF ' + pages.length + ' trang…');
+  let ok = false, n = 0;
+  try { const list = pages.filter(p => p.out); n = list.length; const pdf = await makePDF(list); busy(false); await saveBlob(pdf, fileStamp() + '_' + n + 'trang.pdf'); ok = true; }
+  catch (e) { busy(false); toast('Lỗi tạo PDF: ' + e.message); }
+  if (ok && askNew && confirm('Đã lưu ' + n + ' trang thành 1 file PDF.\nXóa các trang này để chụp tài liệu mới?')) {
+    pages.forEach(p => { p.ver++; p.url && URL.revokeObjectURL(p.url); p.srcUrl && URL.revokeObjectURL(p.srcUrl); });
+    pages.length = 0; refreshGallery(); reviewMode = false; show('cam');
+  }
+}
+$('savePdf').onclick = () => saveAllPdf(true);
+
+/* Tạo PDF tối giản: mỗi trang một ảnh JPEG, khổ rộng A4 (595pt) */
+async function makePDF(list) {
+  const enc = new TextEncoder(), parts = [], offs = [];
+  let len = 0; const push = x => { const b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); len += b.length; };
+  push('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+  const n = list.length, kids = [];
+  for (let i = 0; i < n; i++) kids.push((3 + i * 3) + ' 0 R');
+  offs[1] = len; push('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+  offs[2] = len; push(`2 0 obj\n<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${n} >>\nendobj\n`);
+  for (let i = 0; i < n; i++) {
+    const p = list[i], jpg = new Uint8Array(await p.out.arrayBuffer());
+    const pw = 595.28, ph = +(pw * p.outH / p.outW).toFixed(2);
+    const po = 3 + i * 3, io = po + 1, co = po + 2;
+    const cs = `q ${pw} 0 0 ${ph} 0 0 cm /Im0 Do Q`;
+    offs[po] = len; push(`${po} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pw} ${ph}] /Resources << /XObject << /Im0 ${io} 0 R >> >> /Contents ${co} 0 R >>\nendobj\n`);
+    offs[io] = len; push(`${io} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${p.outW} /Height ${p.outH} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpg.length} >>\nstream\n`); push(jpg); push('\nendstream\nendobj\n');
+    offs[co] = len; push(`${co} 0 obj\n<< /Length ${cs.length} >>\nstream\n${cs}\nendstream\nendobj\n`);
+  }
+  const total = 3 + n * 3, xref = len;
+  let x = `xref\n0 ${total}\n0000000000 65535 f \n`;
+  for (let i = 1; i < total; i++) x += String(offs[i]).padStart(10, '0') + ' 00000 n \n';
+  push(x + `trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
+  return new Blob(parts, { type: 'application/pdf' });
+}
+
+/* Nút Back của Android */
+window.onAndroidBack = () => {
+  if ($('crop').classList.contains('on')) { show('view'); return true; }
+  if ($('view').classList.contains('on')) { if (reviewMode) { reviewMode = false; show('cam'); } else show('list'); return true; }
+  if ($('list').classList.contains('on')) { show('cam'); return true; }
+  return false;
+};
+document.addEventListener('visibilitychange', () => { if (document.hidden) stopLive(); else if ($('cam').classList.contains('on')) startLive(); });
+
+startCam();
+</script>
+</body>
+</html>
