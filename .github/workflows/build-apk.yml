@@ -12,12 +12,21 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      # Máy build GitHub đã có sẵn Android SDK: chỉ chấp nhận license và cài đúng gói cần
+      - name: Cài Android SDK (platform 34, build-tools 34)
+        run: |
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          echo "SDK=$SDK"
+          SM=$(ls "$SDK"/cmdline-tools/*/bin/sdkmanager | sort -V | tail -1)
+          echo "sdkmanager=$SM"
+          yes | "$SM" --licenses > /dev/null || true
+          "$SM" "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+          echo "sdk.dir=$SDK" > local.properties
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
       - name: Build APK
-        run: gradle assembleRelease --no-daemon
+        run: gradle assembleRelease --no-daemon --stacktrace
       - name: Đổi tên APK
         run: cp app/build/outputs/apk/release/app-release.apk QuetTaiLieu.apk
       - uses: actions/upload-artifact@v4
