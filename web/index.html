@@ -920,6 +920,68 @@ function backgroundGrid(L, w, h, bs) {
 }
 
 /* Tăng cường: khử bóng/nếp nhăn, giấy trắng, chữ đậm (ngưỡng thích nghi) */
+
+/* Tìm vùng ảnh chụp/hình minh họa trong trang (nhiều sắc xám trung gian, có chi tiết)
+   -> trả về danh sách khung [x0,y0,x1,y1] để giữ nguyên, không làm sạch như chữ */
+function findPhotoBoxes(L, w, h, G, gw, gh) {
+  const gs = Array.from(G).sort((a, b) => a - b), P = Math.max(60, gs[Math.floor(gs.length * 0.6)]);
+  const bs = Math.max(8, Math.round(Math.min(w, h) / 40)), bw = Math.ceil(w / bs), bh = Math.ceil(h / bs);
+  const isP = new Uint8Array(bw * bh);
+  for (let by = 0; by < bh; by++) for (let bx = 0; bx < bw; bx++) {
+    let n = 0, mid = 0, dark = 0, s = 0, s2 = 0;
+    for (let y = by * bs; y < Math.min(h, (by + 1) * bs); y += 2) for (let x = bx * bs; x < Math.min(w, (bx + 1) * bs); x += 2) {
+      const v = L[y * w + x] / P; n++; s += v; s2 += v * v;
+      if (v > 0.12 && v < 0.8) mid++; if (v <= 0.8) dark++;
+    }
+    const m = s / n, sd = Math.sqrt(Math.max(0, s2 / n - m * m));
+    if (mid / n > 0.45 && dark / n > 0.55 && sd > 0.07) isP[by * bw + bx] = 1;
+  }
+  // nối các ô kề nhau, giữ cụm đủ lớn, không chạm mép ảnh
+  const lab = new Int32Array(bw * bh), boxes = []; let cur = 0;
+  for (let s0 = 0; s0 < bw * bh; s0++) {
+    if (!isP[s0] || lab[s0]) continue;
+    cur++; const st = [s0]; lab[s0] = cur; let x0 = bw, x1 = 0, y0 = bh, y1 = 0, cnt = 0;
+    while (st.length) {
+      const p = st.pop(), x = p % bw, y = (p / bw) | 0; cnt++;
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= bw || yy >= bh) continue;
+        const q = yy * bw + xx; if (isP[q] && !lab[q]) { lab[q] = cur; st.push(q); }
+      }
+    }
+    const bwid = x1 - x0 + 1, bhei = y1 - y0 + 1;
+    if (cnt < 6 || bwid < 3 || bhei < 3 || cnt < bwid * bhei * 0.4) continue;
+    const touch = x0 === 0 || y0 === 0 || x1 === bw - 1 || y1 === bh - 1;
+    if (touch && (bwid < 4 || bhei < 4 || cnt < bwid * bhei * 0.55)) continue;   // dải mỏng sát mép = bóng, không phải ảnh
+    boxes.push([Math.max(0, (x0 - 0.5) * bs) | 0, Math.max(0, (y0 - 0.5) * bs) | 0, Math.min(w - 1, (x1 + 1.5) * bs) | 0, Math.min(h - 1, (y1 + 1.5) * bs) | 0]);
+  }
+  return { boxes, P };
+}
+
+function restorePhotos(px, w, photos) {
+  for (const { box: [x0, y0, x1, y1], buf } of photos || []) { let q = 0;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++, q += 4) { const o = (y * w + x) * 4; px[o] = buf[q]; px[o + 1] = buf[q + 1]; px[o + 2] = buf[q + 2]; } }
+}
+/* Vệt nâu/xám nhạt ở mép (mép tập giấy, bóng gáy): trong dải sát mép, điểm nhạt hoặc ngả nâu -> trắng.
+   Chữ đậm và chữ xám trung tính giữ nguyên. */
+function cleanEdgeTint(px, w, h, photos) {
+  const bx = Math.round(w * 0.07), by = Math.round(h * 0.05);
+  const inPh = (x, y) => (photos || []).some(({ box: b }) => x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3]);
+  // nét chữ đậm (trung tính) và vùng sát nó: không đụng tới
+  const ink = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) { const o = i * 4, r = px[o], g = px[o + 1], b = px[o + 2]; const L = 0.299 * r + 0.587 * g + 0.114 * b; if (L < 130 && Math.max(r, g, b) - Math.min(r, g, b) < 40) ink[i] = 1; }
+  // nét dài liền mạch song song mép (vạch mép tập giấy) không tính là chữ
+  const near = morph(ink, w, h, Math.max(2, Math.round(Math.min(w, h) / 400)), true);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x, o = i * 4, r = px[o], g = px[o + 1], b = px[o + 2];
+    if (ink[i]) continue;
+    const L = 0.299 * r + 0.587 * g + 0.114 * b, chroma = Math.max(r, g, b) - Math.min(r, g, b);
+    // nâu/vàng nhạt (không phải đỏ của con dấu): toàn trang
+    const brown = r >= g && g >= b && chroma > 14 && L > 110 && (g - b) >= 0.4 * (r - g);
+    const band = !(x >= bx && x < w - bx && y >= by && y < h - by);
+    if ((brown || (band && L > 130 && !near[i])) && !inPh(x, y)) px[o] = px[o + 1] = px[o + 2] = 255;
+  }
+}
 function enhance(img, mode) {
   if (mode === 'original') return img;
   const { w, h, data } = img, n = w * h;
@@ -963,6 +1025,18 @@ function enhance(img, mode) {
       out[o + 3] = 255;
     }
   }
+  // vùng ảnh: tông nhẹ (không ngưỡng hóa), cất lại để trả về sau các bước làm sạch
+  const ph = findPhotoBoxes(L, w, h, G, gw, gh), photoPx = [];
+  for (const [x0, y0, x1, y1] of ph.boxes) {
+    const k = 255 / (ph.P * 0.95), buf = new Uint8ClampedArray((x1 - x0 + 1) * (y1 - y0 + 1) * 4); let q = 0;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++, q += 4) {
+      const o = (y * w + x) * 4;
+      if (mode === 'color') { buf[q] = data[o] * k; buf[q + 1] = data[o + 1] * k; buf[q + 2] = data[o + 2] * k; }
+      else { buf[q] = buf[q + 1] = buf[q + 2] = L[y * w + x] * k; }
+      buf[q + 3] = 255;
+    }
+    photoPx.push({ box: [x0, y0, x1, y1], buf });
+  }
   const preClean = out.slice();
   cleanSmudges(det || out, w, h, out);
   // chữ nhạt (in nhiệt mờ, logo xám): tối hơn hẳn vùng lân cận -> cũng là nét chữ
@@ -975,7 +1049,8 @@ function enhance(img, mode) {
   typedPaper(out, w, h, inkM, mode, det || out, preClean);
   cleanBorders(out, w, h);
   neatFrame(out, w, h, inkM, det || out);
-  return { w, h, data: out };
+  restorePhotos(out, w, photoPx);
+  return { w, h, data: out, photos: photoPx };
 }
 
 
@@ -1071,7 +1146,12 @@ function typedPaper(px, w, h, inkM, mode, tonePx, preClean) {
     if (inBand) cand.push({ comp, x0, x1, y0, y1, dark: minT <= 85 });
     const touchB = x0 <= 1 || y0 <= 1 || x1 >= w - 2 || y1 >= h - 2;
     const tbDash = (y1 < h * 0.05 || y0 > h * 0.95) && (y1 - y0 + 1) <= Math.max(3, h * 0.004) && (x1 - x0 + 1) > (y1 - y0 + 1) * 3;
-    if ((area > n * 0.0002 && thick > minD * 0.012) || area < 3 || (touchB && area > n * 0.0015) || tbDash) { for (const p of comp) inkM[p] = 0; continue; }
+    if ((area > n * 0.0002 && thick > minD * 0.012) || area < 3 || (touchB && area > n * 0.0015 && thick > Math.max(4, minD * 0.007)) || tbDash) { for (const p of comp) inkM[p] = 0; continue; }
+    if (touchB && area > n * 0.0015) {   // cụm mảnh chạm mép: chỉ cắt đoạn nét dài chạy dọc mép (viền giấy), giữ chữ
+      const inC = new Set(comp), bxw = Math.round(w * 0.06), byh = Math.round(h * 0.05), lv = Math.max(10, h * 0.025), lh = Math.max(10, w * 0.07);
+      for (let x = x0; x <= x1; x++) { if (x >= bxw && x < w - bxw) continue; let s0 = -1; for (let y = y0; y <= y1 + 1; y++) { const on = y <= y1 && inC.has(y * w + x); if (on && s0 < 0) s0 = y; if (!on && s0 >= 0) { if (y - s0 > lv) for (let k = s0; k < y; k++) inkM[k * w + x] = 0; s0 = -1; } } }
+      for (let y = y0; y <= y1; y++) { if (y >= byh && y < h - byh) continue; let s0 = -1; for (let x = x0; x <= x1 + 1; x++) { const on = x <= x1 && inC.has(y * w + x); if (on && s0 < 0) s0 = x; if (!on && s0 >= 0) { if (x - s0 > lh) for (let k = s0; k < x; k++) inkM[y * w + k] = 0; s0 = -1; } } }
+    }
     if (area < smallA) smalls.push({ id: cur, x0, x1, y0, y1, comp });
     if (nearEdge && longThin) {
       // chỉ cắt phần viền (đoạn chạy dài liền mạch theo phương của cụm), giữ chữ cái dính vào
@@ -1852,9 +1932,16 @@ function processDoc(src, opts) {
   // tự lật 180° nếu trang bị ngược (chỉ khi tự nhận hướng, bằng chứng rõ)
   if (!fixedOrient && frame) {   // chỉ ảnh chụp ngang; ảnh dọc giữ nguyên chiều
     const v = upsideDownVote(out);
-    if (v >= (frame ? 2 : 4)) { out = rot90(out, 2); orient = (orient + 2) % 4; }
+    if (v >= (frame ? 2 : 4)) {
+      const phs = out.photos || []; out = rot90(out, 2); orient = (orient + 2) % 4;
+      out.photos = phs.map(({ box: [x0, y0, x1, y1], buf }) => { const b2 = new Uint8ClampedArray(buf.length); const n = buf.length / 4; for (let i = 0; i < n; i++) { const j = (n - 1 - i) * 4; b2[i * 4] = buf[j]; b2[i * 4 + 1] = buf[j + 1]; b2[i * 4 + 2] = buf[j + 2]; b2[i * 4 + 3] = 255; } return { box: [out.w - 1 - x1, out.h - 1 - y1, out.w - 1 - x0, out.h - 1 - y0], buf: b2 }; });
+    }
   }
-  if ((opts.mode || 'color') !== 'original') dropEdgeFragments(out.data, out.w, out.h);
+  if ((opts.mode || 'color') !== 'original') {
+    dropEdgeFragments(out.data, out.w, out.h);
+    cleanEdgeTint(out.data, out.w, out.h, out.photos);
+    restorePhotos(out.data, out.w, out.photos);
+  }
   let quadN = qs.map(p => [p[0] / (sw - 1), p[1] / (sh - 1)]);
   if (frame) quadN = orderQuad(rotQuadN(quadN, 4 - frame));   // trả về theo ảnh gốc (cho màn cắt góc)
   return { img: out, orient, quad: quadN, flaps: det ? det.flaps : 0, cuts: det ? det.cuts : 0, conf: det ? det.conf : 1, warp: chosen, ms: Date.now() - t0 };
@@ -2048,15 +2135,33 @@ function drawOverlay() {
 }
 
 async function grabFrame() {
-  // Chụp ĐÚNG phần đang thấy trên màn hình, không lấy rộng hơn (tránh dính trang kế bên)
+  // Chụp ĐÚNG phần đang thấy trên màn hình. Ưu tiên ảnh độ phân giải đầy đủ của camera (nét hơn khung video),
+  // cắt theo cùng tỉ lệ khung xem trước; nếu không được thì lấy khung video.
   const vw = video.videoWidth, vh = video.videoHeight, W = video.clientWidth || vw, H = video.clientHeight || vh;
-  const s = Math.max(W / vw, H / vh), sw = Math.min(vw, Math.round(W / s)), sh = Math.min(vh, Math.round(H / s));
-  const sx = Math.round((vw - sw) / 2), sy = Math.round((vh - sh) / 2);
-  const c = document.createElement('canvas'); c.width = sw; c.height = sh;
-  const x = c.getContext('2d'); x.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
-  const id = x.getImageData(0, 0, sw, sh);
-  const blob = await canvasToBlob(c, 0.92);
-  return { id, blob };
+  const s = Math.max(W / vw, H / vh), fw = Math.min(1, W / s / vw), fh = Math.min(1, H / s / vh);
+  const cropTo = (srcW, srcH, draw) => {
+    const sw = Math.round(srcW * fw), sh = Math.round(srcH * fh), sx = Math.round((srcW - sw) / 2), sy = Math.round((srcH - sh) / 2);
+    const k = Math.min(1, 4000 / Math.max(sw, sh));
+    const c = document.createElement('canvas'); c.width = Math.round(sw * k); c.height = Math.round(sh * k);
+    const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; draw(x, sx, sy, sw, sh, c.width, c.height);
+    return c;
+  };
+  if (track && window.ImageCapture) {
+    try {
+      const ic = new ImageCapture(track);
+      const blob0 = await Promise.race([ic.takePhoto(), new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 3000))]);
+      let bmp; try { bmp = await createImageBitmap(blob0, { imageOrientation: 'from-image' }); } catch (e) { bmp = await createImageBitmap(blob0); }
+      // ảnh phải cùng hướng (dọc/ngang) với khung xem trước, nếu không thì bỏ, dùng khung video
+      if ((bmp.width > bmp.height) === (vw > vh)) {
+        const c = cropTo(bmp.width, bmp.height, (x, sx, sy, sw, sh, cw, ch) => x.drawImage(bmp, sx, sy, sw, sh, 0, 0, cw, ch));
+        const id = c.getContext('2d').getImageData(0, 0, c.width, c.height);
+        return { id, blob: await canvasToBlob(c, 0.92) };
+      }
+    } catch (e) { /* dùng khung video */ }
+  }
+  const c = cropTo(vw, vh, (x, sx, sy, sw, sh, cw, ch) => x.drawImage(video, sx, sy, sw, sh, 0, 0, cw, ch));
+  const id = c.getContext('2d').getImageData(0, 0, c.width, c.height);
+  return { id, blob: await canvasToBlob(c, 0.92) };
 }
 
 let capturing = false;
@@ -2232,8 +2337,26 @@ function fileStamp() { const d = new Date(), z = n => String(n).padStart(2, '0')
 function blobToB64(b) { return new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(',')[1]); fr.readAsDataURL(b); }); }
 async function saveBlob(blob, name) {
   if (isAndroidApp) {
-    const res = window.AndroidBridge.saveFile(name, blob.type || 'application/octet-stream', await blobToB64(blob));
-    toast(res && res.indexOf('ERR') !== 0 ? 'Đã lưu: ' + res : 'Lỗi lưu file: ' + res, 3500); return;
+    // gửi file sang Android theo từng phần nhỏ (file PDF nhiều trang không làm tràn bộ nhớ)
+    let res;
+    try {
+      const AB = window.AndroidBridge;
+      if (AB.beginFile) {
+        const id = AB.beginFile(name, blob.type || 'application/octet-stream');
+        if (String(id).indexOf('ERR') === 0) throw new Error(id);
+        const CH = 3 * 256 * 1024;                     // 768 KB, bội số của 3 để ghép base64 đúng
+        for (let off = 0; off < blob.size; off += CH) {
+          const r = AB.appendChunk(id, await blobToB64(blob.slice(off, off + CH)));
+          if (String(r).indexOf('ERR') === 0) throw new Error(r);
+          if (blob.size > CH * 2) busy(true, 'Đang lưu… ' + Math.min(100, Math.round((off + CH) * 100 / blob.size)) + '%');
+        }
+        res = AB.finishFile(id);
+      } else {
+        res = AB.saveFile(name, blob.type || 'application/octet-stream', await blobToB64(blob));
+      }
+    } catch (e) { res = 'ERR: ' + e.message; }
+    busy(false);
+    toast(res && String(res).indexOf('ERR') !== 0 ? 'Đã lưu: ' + res : 'Lỗi lưu file: ' + res, 4000); return;
   }
   // Web: ưu tiên chia sẻ trên iOS (lưu vào Tệp/Ảnh), còn lại tải xuống
   const file = new File([blob], name, { type: blob.type });

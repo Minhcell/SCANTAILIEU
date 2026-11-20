@@ -130,33 +130,87 @@ public class MainActivity extends Activity {
         });
     }
 
-    /** Cầu nối JS: lưu file vào thư mục Download/QuetTaiLieu */
+    /** Cầu nối JS: lưu file vào thư mục Download/QuetTaiLieu (nhận theo từng phần để không tràn bộ nhớ) */
     class Bridge {
+        private final java.util.HashMap<String, File> tmpFiles = new java.util.HashMap<>();
+        private final java.util.HashMap<String, String[]> meta = new java.util.HashMap<>();
+        private int seq = 0;
+
+        @JavascriptInterface
+        public synchronized String beginFile(String name, String mime) {
+            try {
+                String id = "f" + (++seq);
+                File t = new File(getCacheDir(), "up_" + id + ".tmp");
+                if (t.exists()) t.delete();
+                tmpFiles.put(id, t);
+                meta.put(id, new String[]{name, mime});
+                return id;
+            } catch (Throwable e) { return "ERR: " + e; }
+        }
+
+        @JavascriptInterface
+        public synchronized String appendChunk(String id, String b64) {
+            try {
+                File t = tmpFiles.get(id);
+                if (t == null) return "ERR: không có file";
+                byte[] bytes = Base64.decode(b64, Base64.DEFAULT);
+                try (FileOutputStream os = new FileOutputStream(t, true)) { os.write(bytes); }
+                return "OK";
+            } catch (Throwable e) { return "ERR: " + e; }
+        }
+
+        @JavascriptInterface
+        public synchronized String finishFile(String id) {
+            File t = tmpFiles.remove(id);
+            String[] m = meta.remove(id);
+            if (t == null || m == null) return "ERR: không có file";
+            try {
+                return writeOut(m[0], m[1], t);
+            } catch (Throwable e) {
+                return "ERR: " + e;
+            } finally {
+                t.delete();
+            }
+        }
+
+        /** cách cũ (file nhỏ) - giữ để tương thích */
         @JavascriptInterface
         public String saveFile(String name, String mime, String b64) {
             try {
-                byte[] bytes = Base64.decode(b64, Base64.DEFAULT);
-                if (Build.VERSION.SDK_INT >= 29) {
-                    ContentValues cv = new ContentValues();
-                    cv.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
-                    cv.put(MediaStore.MediaColumns.MIME_TYPE, mime);
-                    cv.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/QuetTaiLieu");
-                    Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
-                    if (uri == null) return "ERR: không tạo được file";
-                    try (OutputStream os = getContentResolver().openOutputStream(uri)) { os.write(bytes); }
-                } else {
-                    if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                        runOnUiThread(() -> requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 3));
-                        return "ERR: cần cấp quyền bộ nhớ, bấm Lưu lại";
-                    }
-                    File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "QuetTaiLieu");
-                    dir.mkdirs();
-                    try (FileOutputStream os = new FileOutputStream(new File(dir, name))) { os.write(bytes); }
+                String id = beginFile(name, mime);
+                String r = appendChunk(id, b64);
+                if (r.startsWith("ERR")) return r;
+                return finishFile(id);
+            } catch (Throwable e) { return "ERR: " + e; }
+        }
+
+        private String writeOut(String name, String mime, File src) throws Exception {
+            if (Build.VERSION.SDK_INT >= 29) {
+                ContentValues cv = new ContentValues();
+                cv.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
+                cv.put(MediaStore.MediaColumns.MIME_TYPE, mime);
+                cv.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/QuetTaiLieu");
+                Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
+                if (uri == null) return "ERR: không tạo được file";
+                try (OutputStream os = getContentResolver().openOutputStream(uri);
+                     java.io.FileInputStream in = new java.io.FileInputStream(src)) {
+                    byte[] buf = new byte[65536]; int n;
+                    while ((n = in.read(buf)) > 0) os.write(buf, 0, n);
                 }
-                return "Download/QuetTaiLieu/" + name;
-            } catch (Exception e) {
-                return "ERR: " + e.getMessage();
+            } else {
+                if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                    runOnUiThread(() -> requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 3));
+                    return "ERR: cần cấp quyền bộ nhớ, bấm Lưu lại";
+                }
+                File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "QuetTaiLieu");
+                dir.mkdirs();
+                try (FileOutputStream os = new FileOutputStream(new File(dir, name));
+                     java.io.FileInputStream in = new java.io.FileInputStream(src)) {
+                    byte[] buf = new byte[65536]; int n;
+                    while ((n = in.read(buf)) > 0) os.write(buf, 0, n);
+                }
             }
+            return "Download/QuetTaiLieu/" + name;
         }
     }
 }

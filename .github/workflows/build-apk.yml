@@ -3,6 +3,8 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -12,13 +14,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      # Máy build GitHub đã có sẵn Android SDK: chỉ chấp nhận license và cài đúng gói cần
       - name: Cài Android SDK (platform 34, build-tools 34)
         run: |
           SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
-          echo "SDK=$SDK"
           SM=$(ls "$SDK"/cmdline-tools/*/bin/sdkmanager | sort -V | tail -1)
-          echo "sdkmanager=$SM"
           yes | "$SM" --licenses > /dev/null || true
           "$SM" "platforms;android-34" "build-tools;34.0.0" "platform-tools"
           echo "sdk.dir=$SDK" > local.properties
@@ -27,9 +26,24 @@ jobs:
           gradle-version: '8.7'
       - name: Build APK
         run: gradle assembleRelease --no-daemon --stacktrace
-      - name: Đổi tên APK
-        run: cp app/build/outputs/apk/release/app-release.apk QuetTaiLieu.apk
+      - name: Chuẩn bị file tải về
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk dist/QuetTaiLieu.apk
+          cp web/index.html dist/QuetTaiLieu.html
+          VER=$(grep versionName app/build.gradle | sed "s/.*'\(.*\)'.*/\1/")
+          echo "VER=$VER" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v4
         with:
           name: QuetTaiLieu-APK
-          path: QuetTaiLieu.apk
+          path: dist/QuetTaiLieu.apk
+      # Bản phát hành: link tải cố định .../releases/latest/download/QuetTaiLieu.apk
+      - name: Tạo bản phát hành (Release)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v${VER}-b${GITHUB_RUN_NUMBER}"
+          gh release create "$TAG" dist/QuetTaiLieu.apk dist/QuetTaiLieu.html \
+            --title "Quét Tài Liệu $VER (bản build $GITHUB_RUN_NUMBER)" \
+            --notes "Tải APK: https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/QuetTaiLieu.apk" \
+            --latest

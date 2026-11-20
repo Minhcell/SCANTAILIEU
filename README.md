@@ -1,9 +1,12 @@
 # Quét Tài Liệu
 
-App chụp tài liệu bằng camera: tự nhận khung giấy, cắt bỏ nền, nắn phối cảnh, làm phẳng giấy cong/nhăn, nắn thẳng dòng chữ, khử bóng, làm giấy trắng chữ đậm. Chạy offline 100%.
+COPYRIGHT BY @ THANH MINH ĐỘI 1 - 06
 
-- `web/index.html` — bản web (1 file, mở bằng trình duyệt; camera trực tiếp cần HTTPS hoặc localhost)
-- `app/` — bản Android (WebView, offline). GitHub Actions tự build `QuetTaiLieu.apk`
-- Bản iPhone: bật GitHub Pages (Settings → Pages → Source: GitHub Actions), mở link bằng Safari → Chia sẻ → Thêm vào MH chính.
+App chụp tài liệu bằng camera: tự cắt trang, làm phẳng, nắn thẳng dòng chữ, nền trắng chữ rõ, lưu nhiều trang thành 1 file PDF. Chạy offline.
 
-File lưu ở: Android → `Download/QuetTaiLieu/`.
+## Tải về (luôn là bản mới nhất)
+- **Android APK:** https://github.com/Minhcell/SCANTAILIEU/releases/latest/download/QuetTaiLieu.apk
+- **Bản web 1 file (máy tính):** https://github.com/Minhcell/SCANTAILIEU/releases/latest/download/QuetTaiLieu.html
+- **iPhone (mở bằng Safari → Thêm vào MH chính):** https://minhcell.github.io/SCANTAILIEU/
+
+Mỗi lần mã nguồn được cập nhật, GitHub Actions tự build và cập nhật các link trên.
